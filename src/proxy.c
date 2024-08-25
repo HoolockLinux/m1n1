@@ -90,7 +90,8 @@ int proxy_process(ProxyRequest *request, ProxyReply *reply)
             break;
         case P_VECTOR:
             // forcefully restore tps6598x IRQs
-            usb_hpm_restore_irqs(1);
+            if (usb_type == USB_TYPE_DWC3)
+                usb_hpm_restore_irqs(1);
             iodev_console_flush();
             next_stage.entry = (generic_func *)request->args[0];
             memcpy(next_stage.args, &request->args[1], 5 * sizeof(u64));

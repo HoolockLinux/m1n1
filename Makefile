@@ -174,7 +174,7 @@ OBJECTS := \
 	tps6598x.o \
 	uart.o \
 	uartproxy.o \
-	usb.o usb_dwc3.o \
+	usb.o usb_dwc3.o usb_dwc2.o \
 	utils.o utils_asm.o \
 	vsprintf.o \
 	wdt.o \
