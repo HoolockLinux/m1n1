@@ -5,14 +5,9 @@
 
 #include "dart.h"
 #include "types.h"
+#include "usb_types.h"
 
 typedef struct dwc3_dev dwc3_dev_t;
-
-typedef enum _cdc_acm_pipe_id_t {
-    CDC_ACM_PIPE_0,
-    CDC_ACM_PIPE_1,
-    CDC_ACM_PIPE_MAX
-} cdc_acm_pipe_id_t;
 
 dwc3_dev_t *usb_dwc3_init(uintptr_t regs, dart_dev_t *dart);
 void usb_dwc3_shutdown(dwc3_dev_t *dev);

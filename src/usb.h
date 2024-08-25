@@ -7,6 +7,8 @@
 #include "types.h"
 #include "usb_dwc3.h"
 
+extern usb_type_t usb_type;
+
 dwc3_dev_t *usb_bringup(u32 idx);
 
 void usb_init(void);
