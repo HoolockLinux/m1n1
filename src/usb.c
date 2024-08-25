@@ -7,9 +7,12 @@
 #include "iodev.h"
 #include "malloc.h"
 #include "pmgr.h"
+#include "soc.h"
 #include "string.h"
 #include "tps6598x.h"
 #include "types.h"
+#include "usb_complex.h"
+#include "usb_dwc2.h"
 #include "usb_dwc3.h"
 #include "usb_dwc3_regs.h"
 #include "utils.h"
@@ -43,6 +46,7 @@ struct usb_drd_regs {
 
 static tps6598x_irq_state_t tps6598x_irq_state[USB_IODEV_COUNT];
 static bool usb_is_initialized = false;
+usb_type_t usb_type = USB_TYPE_DWC3;
 
 #define PIPEHANDLER_MUX_CTRL             0x0c
 #define PIPEHANDLER_MUX_CTRL_USB3        0x08
@@ -172,67 +176,66 @@ dwc3_dev_t *usb_iodev_bringup(u32 idx)
     return usb_dwc3_init(usb_reg.drd_regs, usb_dart);
 }
 
-#define USB_IODEV_WRAPPER(name, pipe)                                                              \
-    static ssize_t usb_##name##_can_read(void *dev)                                                \
+#define USB_IODEV_WRAPPER(driver, name, pipe)                                                      \
+    static ssize_t usb_##driver##_##name##_can_read(void *dev)                                     \
     {                                                                                              \
-        return usb_dwc3_can_read(dev, pipe);                                                       \
+        return usb_##driver##_can_read(dev, pipe);                                                 \
     }                                                                                              \
                                                                                                    \
-    static bool usb_##name##_can_write(void *dev)                                                  \
+    static bool usb_##driver##_##name##_can_write(void *dev)                                       \
     {                                                                                              \
-        return usb_dwc3_can_write(dev, pipe);                                                      \
+        return usb_##driver##_can_write(dev, pipe);                                                \
     }                                                                                              \
                                                                                                    \
-    static ssize_t usb_##name##_read(void *dev, void *buf, size_t count)                           \
+    static ssize_t usb_##driver##_##name##_read(void *dev, void *buf, size_t count)                \
     {                                                                                              \
-        return usb_dwc3_read(dev, pipe, buf, count);                                               \
+        return usb_##driver##_read(dev, pipe, buf, count);                                         \
     }                                                                                              \
                                                                                                    \
-    static ssize_t usb_##name##_write(void *dev, const void *buf, size_t count)                    \
+    static ssize_t usb_##driver##_##name##_write(void *dev, const void *buf, size_t count)         \
     {                                                                                              \
-        return usb_dwc3_write(dev, pipe, buf, count);                                              \
+        return usb_##driver##_write(dev, pipe, buf, count);                                        \
     }                                                                                              \
                                                                                                    \
-    static ssize_t usb_##name##_queue(void *dev, const void *buf, size_t count)                    \
+    static ssize_t usb_##driver##_##name##_queue(void *dev, const void *buf, size_t count)         \
     {                                                                                              \
-        return usb_dwc3_queue(dev, pipe, buf, count);                                              \
+        return usb_##driver##_queue(dev, pipe, buf, count);                                        \
     }                                                                                              \
                                                                                                    \
-    static void usb_##name##_handle_events(void *dev)                                              \
+    static void usb_##driver##_##name##_handle_events(void *dev)                                   \
     {                                                                                              \
-        usb_dwc3_handle_events(dev);                                                               \
+        usb_##driver##_handle_events(dev);                                                         \
     }                                                                                              \
                                                                                                    \
-    static void usb_##name##_flush(void *dev)                                                      \
+    static void usb_##driver##_##name##_flush(void *dev)                                           \
     {                                                                                              \
-        usb_dwc3_flush(dev, pipe);                                                                 \
+        usb_##driver##_flush(dev, pipe);                                                           \
     }
 
-USB_IODEV_WRAPPER(0, CDC_ACM_PIPE_0)
-USB_IODEV_WRAPPER(1, CDC_ACM_PIPE_1)
+USB_IODEV_WRAPPER(dwc2, 0, CDC_ACM_PIPE_0)
+USB_IODEV_WRAPPER(dwc2, 1, CDC_ACM_PIPE_1)
 
-static struct iodev_ops iodev_usb_ops = {
-    .can_read = usb_0_can_read,
-    .can_write = usb_0_can_write,
-    .read = usb_0_read,
-    .write = usb_0_write,
-    .queue = usb_0_queue,
-    .flush = usb_0_flush,
-    .handle_events = usb_0_handle_events,
-};
+USB_IODEV_WRAPPER(dwc3, 0, CDC_ACM_PIPE_0)
+USB_IODEV_WRAPPER(dwc3, 1, CDC_ACM_PIPE_1)
 
-static struct iodev_ops iodev_usb_sec_ops = {
-    .can_read = usb_1_can_read,
-    .can_write = usb_1_can_write,
-    .read = usb_1_read,
-    .write = usb_1_write,
-    .queue = usb_1_queue,
-    .flush = usb_1_flush,
-    .handle_events = usb_1_handle_events,
-};
+#define USB_IODEV_OPS(driver, name, pipe)                                                          \
+    {                                                                                              \
+        .can_read = usb_##driver##_##name##_can_read,                                              \
+        .can_write = usb_##driver##_##name##_can_write,                                            \
+        .read = usb_##driver##_##name##_read,                                                      \
+        .write = usb_##driver##_##name##_write,                                                    \
+        .queue = usb_##driver##_##name##_queue,                                                    \
+        .flush = usb_##driver##_##name##_flush,                                                    \
+        .handle_events = usb_##driver##_##name##_handle_events,                                    \
+    }
+
+static struct iodev_ops iodev_usb_dwc2_ops = USB_IODEV_OPS(dwc2, 0, CDC_ACM_PIPE_0);
+static struct iodev_ops iodev_usb_dwc2_sec_ops = USB_IODEV_OPS(dwc2, 1, CDC_ACM_PIPE_1);
+
+static struct iodev_ops iodev_usb_dwc3_ops = USB_IODEV_OPS(dwc3, 0, CDC_ACM_PIPE_0);
+static struct iodev_ops iodev_usb_dwc3_sec_ops = USB_IODEV_OPS(dwc3, 1, CDC_ACM_PIPE_1);
 
 struct iodev iodev_usb_vuart = {
-    .ops = &iodev_usb_sec_ops,
     .usage = 0,
     .lock = SPINLOCK_INIT,
 };
@@ -315,6 +318,136 @@ static int usb_init_i2c(const char *i2c_path)
     return 0;
 }
 
+int usb_complex_init(void)
+{
+    // bring_up, we do have one usb port
+    int otgphyctrl_path[8], usbComplex_path[8];
+    u64 USBComplexBase, USBComplex_OTGBase = 0, DWC2Base;
+
+    usb_type = USB_TYPE_DWC2;
+
+    adt_path_offset_trace(adt, "/arm-io/usb-complex", usbComplex_path);
+
+    int otgctl_offset = adt_path_offset_trace(adt, "/arm-io/otgphyctrl", otgphyctrl_path);
+
+    for (uint32_t i = 0, max = 2; i < max; ++i) {
+        u64 ctlsize, ctlbase;
+        if (adt_get_reg(adt, otgphyctrl_path, "reg", i, &ctlbase, &ctlsize) < 0) {
+            printf("usb: failed to get /arm-io/otgphyctrl reg\n");
+            return -1;
+        }
+        if (ctlsize == 0x20) {
+            USBComplex_OTGBase = ctlbase;
+            break;
+        }
+    }
+
+    if (!USBComplex_OTGBase) {
+        printf("usb: failed to parse /arm-io/otgphyctrl reg\n");
+        return -1;
+    }
+
+    if (adt_get_reg(adt, usbComplex_path, "reg", 0, &USBComplexBase, NULL) < 0) {
+        printf("usb: Error getting USBComplexBase Reg\n");
+        return -1;
+    }
+
+    // Can't trust ADT /arm-io/usb-complex/usb-device , it is some usb3 on A10X and we want dwc2
+    DWC2Base = (USBComplex_OTGBase & ~0xfffULL) + 0x00100000;
+
+    // USB complex
+    pmgr_power_on(0, "USB");
+
+    // USB complex OTG control registers
+    pmgr_power_on(0, "USBCTLREG");
+    pmgr_power_on(0, "USBCTRL");
+
+    // DWC2 device
+    pmgr_power_on(0, "USBOTG");
+    pmgr_power_on(0, "USBDEV");
+    pmgr_power_on(0, "USB2DEV");
+
+    pmgr_reset(0, "USB");
+
+    pmgr_reset(0, "USBCTLREG");
+    pmgr_reset(0, "USBCTRL");
+
+    pmgr_reset(0, "USBOTG");
+    pmgr_reset(0, "USBDEV");
+    pmgr_reset(0, "USB2DEV");
+
+    u32 cfg0, cfg1;
+    if (ADT_GETPROP(adt, otgctl_offset, "cfg0-device", &cfg0) < 0) {
+        printf("usb: Error getting CFG0 from otgctl \n");
+        return -1;
+    }
+    if (ADT_GETPROP(adt, otgctl_offset, "cfg1-device", &cfg1) < 0) {
+        printf("usb: Error getting CFG1 from otgctl \n");
+        return -1;
+    }
+
+    // Derived from ADT usb_widget, however that property is not usable as-is
+    switch (chip_id) {
+        case T8011:
+            write32(USBComplexBase + USBX_CTL_T8011, USBX_CTL_EN_T8011);
+            write32(USBComplexBase + USBX_USB2DEV_REMAP_CTL_T8011, USBX_REMAP_TO_DRAM_BITS_T8011);
+            write32(USBComplexBase + USBX_EHCI_REMAP_CTL_T8011, USBX_REMAP_TO_DRAM_BITS_T8011);
+            break;
+        case T8015:
+            write32(USBComplexBase + USBX_CTL_T8011, USBX_CTL_EN_T8011);
+            write32(USBComplexBase + USBX_EHCI0_REMAP_CTL_T8015, USBX_REMAP_TO_DRAM_BITS_T8011);
+            write32(USBComplexBase + USBX_OHCI0_REMAP_CTL_T8015, USBX_REMAP_TO_DRAM_BITS_T8011);
+            write32(USBComplexBase + USBX_EHCI1_REMAP_CTL_T8015, USBX_REMAP_TO_DRAM_BITS_T8011);
+            write32(USBComplexBase + USBX_USBDEV_REMAP_CTL_T8015, USBX_REMAP_TO_DRAM_BITS_T8011);
+            break;
+        default:
+            write32(USBComplexBase + USBX_EHCI0_REMAP_CTL_S5L8960X,
+                    USBX_REMAP_TO_DRAM_BITS_S5L8960X);
+            write32(USBComplexBase + USBX_EHCI1_REMAP_CTL_S5L8960X,
+                    USBX_REMAP_TO_DRAM_BITS_S5L8960X);
+            write32(USBComplexBase + USBX_USBDEV_REMAP_CTL_S5L8960X,
+                    USBX_REMAP_TO_DRAM_BITS_S5L8960X);
+            write32(USBComplexBase + USBX_OHCI0_REMAP_CTL_S5L8960X,
+                    USBX_REMAP_TO_DRAM_BITS_S5L8960X);
+            break;
+    }
+    write32(USBComplex_OTGBase + USBX_OTG_CFG0, cfg0);
+    write32(USBComplex_OTGBase + USBX_OTG_CFG1, cfg1);
+
+    set32(USBComplex_OTGBase + USBX_OTG_CTL, USBX_OTG_CTL_RESET);
+
+    udelay(20);
+    clear32(USBComplex_OTGBase + USBX_OTG_CTL, USBX_OTG_CTL_PWRDOWN | USBX_OTG_CTL_SIDDQ);
+    udelay(20);
+    clear32(USBComplex_OTGBase + USBX_OTG_CTL, USBX_OTG_CTL_RESET);
+    udelay(20);
+    clear32(USBComplex_OTGBase + USBX_OTG_SIG, USBX_OTG_SIG_VBUSDET_FORCE_EN);
+    udelay(1500);
+
+    dwc2_dev_t *opaque;
+    struct iodev *usb_iodev;
+
+    opaque = usb_dwc2_init(DWC2Base);
+    if (!opaque)
+        return -1;
+
+    usb_iodev = memalign(SPINLOCK_ALIGN, sizeof(*usb_iodev));
+    if (!usb_iodev)
+        return -1;
+    set32(USBComplex_OTGBase + USBX_OTG_SIG, USBX_OTG_SIG_VBUSDET_FORCE_EN);
+    usb_iodev->ops = &iodev_usb_dwc2_ops;
+    usb_iodev->opaque = opaque;
+    usb_iodev->usage = USAGE_CONSOLE | USAGE_UARTPROXY;
+    spin_init(&usb_iodev->lock);
+
+    iodev_register_device(IODEV_USB0, usb_iodev);
+    printf("USB0: initialized at %p\n", opaque);
+
+    usb_is_initialized = true;
+
+    return 0;
+}
+
 void usb_init(void)
 {
     if (usb_is_initialized)
@@ -330,12 +463,12 @@ void usb_init(void)
     }
 
     /*
-     * A7-A11 uses a custom internal otg controller with the peripheral part
-     * being dwc2.
+     * A7-A11 uses a custom internal otg phy with the peripheral part
+     * being dwc2, role switch seems custom.
      */
     if (adt_path_offset(adt, "/arm-io/otgphyctrl") > 0 &&
         adt_path_offset(adt, "/arm-io/usb-complex") > 0) {
-        /* We do not support the custom controller and dwc2 (yet). */
+        usb_complex_init();
         return;
     }
 
@@ -425,6 +558,10 @@ void usb_hpm_restore_irqs(bool force)
 
 void usb_iodev_init(void)
 {
+    if (adt_path_offset(adt, "/arm-io/otgphyctrl") > 0 &&
+        adt_path_offset(adt, "/arm-io/usb-complex") > 0) {
+        return; // already init in usb_init() since we do have only 1 usb port
+    }
     for (int i = FIRST_USB_IODEV; i < USB_IODEV_COUNT; i++) {
         dwc3_dev_t *opaque;
         struct iodev *usb_iodev;
@@ -437,7 +574,7 @@ void usb_iodev_init(void)
         if (!usb_iodev)
             continue;
 
-        usb_iodev->ops = &iodev_usb_ops;
+        usb_iodev->ops = &iodev_usb_dwc3_ops;
         usb_iodev->opaque = opaque;
         usb_iodev->usage = USAGE_CONSOLE | USAGE_UARTPROXY;
         spin_init(&usb_iodev->lock);
@@ -455,7 +592,13 @@ void usb_iodev_shutdown(void)
             continue;
 
         printf("USB%d: shutdown\n", i);
-        usb_dwc3_shutdown(usb_iodev->opaque);
+        if (adt_path_offset(adt, "/arm-io/otgphyctrl") > 0 &&
+            adt_path_offset(adt, "/arm-io/usb-complex") > 0) {
+            usb_dwc2_shutdown(usb_iodev->opaque);
+            return;
+        } else {
+            usb_dwc3_shutdown(usb_iodev->opaque);
+        }
         free(usb_iodev);
     }
 }
@@ -465,5 +608,7 @@ void usb_iodev_vuart_setup(iodev_id_t iodev)
     if (iodev < IODEV_USB0 || iodev >= IODEV_USB0 + USB_IODEV_COUNT)
         return;
 
+    iodev_usb_vuart.ops =
+        usb_type == USB_TYPE_DWC2 ? &iodev_usb_dwc2_sec_ops : &iodev_usb_dwc3_sec_ops;
     iodev_usb_vuart.opaque = iodev_get_opaque(iodev);
 }
