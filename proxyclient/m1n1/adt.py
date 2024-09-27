@@ -364,11 +364,11 @@ DEV_PROPERTIES = {
             "speaker-thiele-small": SpeakerThieleSmall,
         },
     },
-    "apcie*": {
-        "*": {
-            "apcie-*-tunables": GreedyRange(TunableLocal),
-        }
-    },
+#    "apcie*": {
+#        "*": {
+#            "apcie-*-tunables": GreedyRange(TunableLocal),
+#        }
+#    },
 }
 
 def parse_prop(node, path, node_name, name, v, is_template=False):
