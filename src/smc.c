@@ -2,6 +2,7 @@
 
 #include "assert.h"
 #include "malloc.h"
+#include "pmgr.h"
 #include "smc.h"
 #include "string.h"
 #include "types.h"
@@ -125,6 +126,12 @@ smc_dev_t *smc_init(void)
     smc_dev_t *smc = calloc(1, sizeof(smc_dev_t));
     if (!smc)
         return NULL;
+
+    if (chip_id == T8015 || chip_id == T8012) {
+        pmgr_power_on(0, "SMC_I2CM1");
+        pmgr_power_on(0, "SMC_FABRIC");
+        pmgr_adt_power_enable("/arm-io/smc");
+    }
 
     smc->asc = asc_init("/arm-io/smc");
     if (!smc->asc) {
