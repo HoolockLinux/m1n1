@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: MIT */
 
+#include "adt.h"
 #include "assert.h"
 #include "malloc.h"
+#include "pmgr.h"
 #include "smc.h"
 #include "string.h"
 #include "types.h"
@@ -120,11 +122,39 @@ void smc_shutdown(smc_dev_t *smc)
     free(smc);
 }
 
+void smc_power_on(void)
+{
+    if (chip_id != T8015 && chip_id != T8012)
+        return;
+
+    pmgr_power_on(0, "SMC_I2CM1");
+    pmgr_power_on(0, "SMC_FABRIC");
+    pmgr_adt_power_enable("/arm-io/smc");
+
+    uintptr_t start;
+    int smc_path[8];
+
+    if (adt_path_offset_trace(adt, "/arm-io/smc", smc_path) < 0) {
+        printf("SMC: Could not get /arm-io/smc path");
+        return;
+    }
+
+    if (adt_get_reg(adt, smc_path, "reg", 2, &start, NULL) < 0) {
+        printf("SMC: Could not get /arm-io/smc reg");
+        return;
+    }
+
+    write32(start, 1);
+}
+
 smc_dev_t *smc_init(void)
 {
     smc_dev_t *smc = calloc(1, sizeof(smc_dev_t));
     if (!smc)
         return NULL;
+
+    if (chip_id == T8015 || chip_id == T8012)
+        smc_power_on();
 
     smc->asc = asc_init("/arm-io/smc");
     if (!smc->asc) {
