@@ -498,6 +498,7 @@
 
 #define L2C_ERR_STS_RECURSIVE_FAULT BIT(1)
 #define L2C_ERR_STS_ACCESS_FAULT    BIT(7)
+#define L2C_ERR_STS_PIO_FAULT       BIT(9)
 #define L2C_ERR_STS_ENABLE_W1C      BIT(56)
 
 #define SYS_IMP_APL_L2C_ERR_ADR sys_reg(3, 3, 15, 9, 0)
