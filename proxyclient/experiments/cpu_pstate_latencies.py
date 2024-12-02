@@ -96,14 +96,15 @@ elif chip_id == 0x8011:
     ]
 
     MAX_PSTATE = [10]
+    LOG_ITERS = 50000
 
     def ps_to_cmd(reg, pstate):
         return 1 << 25 | (pstate & 15) << 12 | (pstate & 15) | (reg & ~0xf00f)
 
 elif chip_id == 0x8015:
     CREG = [
-        0x202e00000,
-        0x202e80000
+        0x208e00000,
+        0x208e80000
     ]
 
     MAX_PSTATE = [7, 8]
@@ -206,7 +207,11 @@ def set_pstate(cluster, pstate):
 
 print()
 
-LOG_ITERS = 10000
+if chip_id in (0x8010, 0x8011, 0x8012):
+    LOG_ITERS = 50000
+else:
+    LOG_ITERS = 10000
+
 logbuf = u.malloc(LOG_ITERS * 16)
 
 def bench_latency(cluster, cpu, from_pstate, to_pstate, verbose=False):
@@ -270,6 +275,7 @@ def bench_latency(cluster, cpu, from_pstate, to_pstate, verbose=False):
         print(f"Triggered at {tval}")
 
     thresh = 2/ (1/f_init + 1/f_end)
+    inc = f_end > f_init
 
     for i in range(tidx, LOG_ITERS - window - 1):
         ts0, cyc0 = log[i - window]
