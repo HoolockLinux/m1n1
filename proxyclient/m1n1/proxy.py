@@ -700,6 +700,7 @@ class M1N1Proxy(Reloadable):
     P_DAPF_INIT = 0x1201
 
     P_CPUFREQ_INIT = 0x1300
+    P_CPUFREQ_UNRESTRICT_BOOST = 0x1301
 
     P_READ_GIGALOCKER = 0x1400
     P_FREE_GIGALOCKER = 0x1401
@@ -1232,6 +1233,9 @@ class M1N1Proxy(Reloadable):
         return self.request(self.P_READ_GIGALOCKER, buf)
     def free_gigalocker(self, buf):
         return self.request(self.P_FREE_GIGALOCKER, buf)
+
+    def cpufreq_unrestrict_boost(self):
+        return self.request(self.P_CPUFREQ_UNRESTRICT_BOOST)
 
 __all__.extend(k for k, v in globals().items()
                if (callable(v) or isinstance(v, type)) and v.__module__ == __name__)
