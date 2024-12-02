@@ -8,6 +8,7 @@ from m1n1 import asm
 
 p.smp_start_secondaries()
 p.cpufreq_init()
+p.cpufreq_unrestrict_boost()
 
 tfreq = u.mrs(CNTFRQ_EL0)
 

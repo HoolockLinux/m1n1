@@ -5,5 +5,6 @@
 
 int cpufreq_init(void);
 void cpufreq_fixup(void);
+void cpufreq_unrestrict_boost(void);
 
 #endif
