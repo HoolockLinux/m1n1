@@ -608,6 +608,9 @@ int proxy_process(ProxyRequest *request, ProxyReply *reply)
         case P_CPUFREQ_PREPARE_BAUD:
             cpufreq_prepare_1500000_baud();
             break;
+        case P_CPUFREQ_UNRESTRICT_BOOST:
+            cpufreq_unrestrict_boost();
+            break;
 
         default:
             reply->status = S_BADCMD;

@@ -123,6 +123,67 @@ static int set_pstate(const struct cluster_t *cluster, uint32_t pstate)
     return 0;
 }
 
+// PSINFO: holds the frequency, voltage and boost information for each P-State
+// state 0 - 7, PSINFO1
+#define CLUSTER_PSINFO1_OFF_S5L8960X 0x20068
+// state 8 - 15, PSINFO1
+#define CLUSTER_PSINFO1_EXT_OFF_S8000 0x20368
+// state 0 - 15, PSINFO2
+#define CLUSTER_PSINFO2_OFF_S8000 0x20868
+
+// NOTE: state 8 - 15 is only available on S800X
+#define CLUSTER_PSINFO1_S5L8960X(pstate)                                                           \
+    ((pstate >= 8) ? (CLUSTER_PSINFO1_EXT_OFF_S8000 + (pstate - 8) * 8)                            \
+                   : (CLUSTER_PSINFO1_OFF_S5L8960X + (pstate * 8)))
+#define CLUSTER_PSINFO2_S8000(pstate) (CLUSTER_PSINFO2_OFF_S8000 + (pstate * 8))
+
+// Starting from T8010 it's much saner with all the PSINFO's in strides
+#define CLUSTER_PSINFO_STRIDE_T8010 0x20
+
+#define CLUSTER_PSINFO_OFF_T8010 0x80000
+#define CLUSTER_PSINFO_OFF_T8015 0x70000
+
+#define CLUSTER_PSINFO1_T8010(pstate)                                                              \
+    (CLUSTER_PSINFO_OFF_T8010 + (pstate * CLUSTER_PSINFO_STRIDE_T8010))
+#define CLUSTER_PSINFO2_T8010(pstate)                                                              \
+    (CLUSTER_PSINFO_OFF_T8010 + 8 + (pstate * CLUSTER_PSINFO_STRIDE_T8010))
+#define CLUSTER_PSINFO3_T8010(pstate)                                                              \
+    (CLUSTER_PSINFO_OFF_T8010 + 0x10 + (pstate * CLUSTER_PSINFO_STRIDE_T8010))
+
+#define CLUSTER_PSINFO1_T8015(pstate)                                                              \
+    (CLUSTER_PSINFO_OFF_T8015 + (pstate * CLUSTER_PSINFO_STRIDE_T8010))
+#define CLUSTER_PSINFO2_T8015(pstate)                                                              \
+    (CLUSTER_PSINFO_OFF_T8015 + 8 + (pstate * CLUSTER_PSINFO_STRIDE_T8010))
+#define CLUSTER_PSINFO3_T8015(pstate)                                                              \
+    (CLUSTER_PSINFO_OFF_T8015 + 0x10 + (pstate * CLUSTER_PSINFO_STRIDE_T8010))
+
+#define CLUSTER_PSINFO_MAX_LOAD GENMASK(43, 40)
+
+/*
+ * This function will unrestrict the boost modes for the cluster.
+ * However, only use this function for testing the state transistions
+ * as it puts the CPU in an untested configuration.
+ */
+void cpufreq_unrestrict_boost_cluster(const struct cluster_t *cluster)
+{
+    // Set max load to 15. This will allow us to enter said state without restrictions
+    if (chip_id == S8000 || chip_id == S8001 || chip_id == S8003) {
+        set64(cluster->base + CLUSTER_PSINFO2_S8000(8), FIELD_PREP(CLUSTER_PSINFO_MAX_LOAD, 15));
+        // board id 0x16: iPod touch 7
+    } else if ((chip_id == T8010 && board_id != 0x16) || chip_id == T8012) {
+        set64(cluster->base + CLUSTER_PSINFO2_T8010(11), FIELD_PREP(CLUSTER_PSINFO_MAX_LOAD, 15));
+    } else if (chip_id == T8011) {
+        set64(cluster->base + CLUSTER_PSINFO2_T8010(10), FIELD_PREP(CLUSTER_PSINFO_MAX_LOAD, 15));
+    } else if (chip_id == T8015) {
+        if (cluster->pcluster)
+            set64(cluster->base + CLUSTER_PSINFO2_T8015(8),
+                  FIELD_PREP(CLUSTER_PSINFO_MAX_LOAD, 15));
+        else
+            set64(cluster->base + CLUSTER_PSINFO2_T8015(7),
+                  FIELD_PREP(CLUSTER_PSINFO_MAX_LOAD, 15));
+    }
+}
+
 int cpufreq_init_cluster(const struct cluster_t *cluster, const struct feat_t *features)
 {
     /* Reset P-State to the APSC p-state */
@@ -569,4 +630,15 @@ void cpufreq_prepare_1500000_baud(void)
         default:
             break;
     }
+}
+
+void cpufreq_unrestrict_boost(void)
+{
+    const struct cluster_t *cluster = cpufreq_get_clusters();
+
+    if (!cluster)
+        return;
+
+    while (cluster->base)
+        cpufreq_unrestrict_boost_cluster(cluster++);
 }
