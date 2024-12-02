@@ -200,7 +200,7 @@ def set_pstate(cluster, pstate):
 
 print()
 
-LOG_ITERS = 10000
+LOG_ITERS = 30000
 logbuf = u.malloc(LOG_ITERS * 16)
 
 def bench_latency(cluster, cpu, from_pstate, to_pstate, verbose=False):
@@ -264,6 +264,7 @@ def bench_latency(cluster, cpu, from_pstate, to_pstate, verbose=False):
         print(f"Triggered at {tval}")
 
     thresh = 2/ (1/f_init + 1/f_end)
+    inc = f_end > f_init
 
     for i in range(tidx, LOG_ITERS - window - 1):
         ts0, cyc0 = log[i - window]
