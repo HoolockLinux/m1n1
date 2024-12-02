@@ -7,23 +7,115 @@ from m1n1.setup import *
 from m1n1 import asm
 
 p.smp_start_secondaries()
+p.cpufreq_init()
 
 tfreq = u.mrs(CNTFRQ_EL0)
-
-TEST_CPUS = [1, 4]
 
 CLUSTER_PSTATE = 0x20020
 CLUSTER_STATUS = 0x20050
 
 chip_id = u.adt["/chosen"].chip_id
 
-if chip_id in (0x8103, 0x6000, 0x6001, 0x6002):
+if chip_id == 0x8960:
+    CREG = [
+        0x202200000
+    ]
+
+    MAX_PSTATE = [6]
+    TEST_CPUS = [1]
+
+    def ps_to_cmd(reg, pstate):
+        return 1 << 25 | (pstate & 7) << 22 | (reg & ~0x1c00000)
+
+elif chip_id == 0x7000:
+    CREG = [
+        0x202200000
+    ]
+
+    if u.adt.target_type == "N102":
+        MAX_PSTATE = [5]
+    elif u.adt.target_type in ("J96", "J97"):
+        MAX_PSTATE = [7]
+    else:
+        MAX_PSTATE = [6]
+
+    TEST_CPUS = [1]
+
+    def ps_to_cmd(reg, pstate):
+        return 1 << 25 | (pstate & 7) << 22 | (reg & ~0x1c00000)
+
+elif chip_id == 0x7001:
+    CREG = [
+        0x202200000
+    ]
+
+    MAX_PSTATE = [7]
+    TEST_CPUS = [1]
+
+    def ps_to_cmd(reg, pstate):
+        return 1 << 25 | (pstate & 7) << 22 | (reg & ~0x1c00000)
+
+elif chip_id in (0x8000, 0x8001, 0x8003):
+    CREG = [
+        0x202200000
+    ]
+
+    MAX_PSTATE = [8]
+    TEST_CPUS = [1]
+
+    def ps_to_cmd(reg, pstate):
+        return 1 << 25 | (pstate & 15) << 12 | (pstate & 15) | (reg & ~0xf00f)
+
+elif chip_id in (0x8010, 0x8012):
+    CREG = [
+        0x202f00000
+    ]
+
+    if u.adt.target_type == "N112":
+        MAX_PSTATE = [8]
+    else:
+        MAX_PSTATE = [11]
+
+    TEST_CPUS = [1]
+
+    def ps_to_cmd(reg, pstate):
+        return 1 << 25 | (pstate & 15) << 12 | (pstate & 15) | (reg & ~0xf00f)
+
+elif chip_id == 0x8011:
+    CREG = [
+        0x202f00000
+    ]
+
+    MAX_PSTATE = [10]
+    TEST_CPUS = [1]
+
+    def ps_to_cmd(reg, pstate):
+        return 1 << 25 | (pstate & 15) << 12 | (pstate & 15) | (reg & ~0xf00f)
+
+elif chip_id == 0x8015:
+    CREG = [
+        0x202e00000,
+        0x202e80000
+    ]
+
+    MAX_PSTATE = [7, 8]
+    TEST_CPUS = [1, 4]
+
+    def ps_to_cmd(reg, pstate):
+        return 1 << 25 | (pstate & 15) << 12 | (pstate & 15) | (reg & ~0xf00f)
+
+
+elif chip_id in (0x8103, 0x6000, 0x6001, 0x6002):
     CREG = [
         0x210e00000,
         0x211e00000,
     ]
 
     MAX_PSTATE = [5, 15]
+    TEST_CPUS = [1, 4]
+
+    def ps_to_cmd(reg, pstate):
+        return 1 << 25 | (pstate & 15) << 12 | (pstate & 15) | (reg & ~0xf00f)
 
 elif chip_id in (0x8121, 0x6020, 0x6021, 0x6022):
     CREG = [
@@ -35,6 +127,11 @@ elif chip_id in (0x8121, 0x6020, 0x6021, 0x6022):
         MAX_PSTATE = [7, 19]
     else:
         MAX_PSTATE = [7, 17]
+
+    TEST_CPUS = [1, 4]
+
+    def ps_to_cmd(reg, pstate):
+        return 1 << 25 | (pstate & 31) | (reg & ~0x1f)
 
 code = u.malloc(0x1000)
 
@@ -98,7 +195,7 @@ def bench_cpu(idx, loops=10000000):
     return mhz
 
 def set_pstate(cluster, pstate):
-    p.mask64(CREG[cluster] + CLUSTER_PSTATE, 0x1f01f, (1<<25) | pstate)
+    p.write64(CREG[cluster] + CLUSTER_PSTATE, ps_to_cmd(p.read64(CREG[cluster] + CLUSTER_PSTATE), pstate))
 
 print()
 
@@ -110,7 +207,7 @@ def bench_latency(cluster, cpu, from_pstate, to_pstate, verbose=False):
     bench_cpu(cpu)
 
     p.smp_call(cpu, util.timelog, logbuf, LOG_ITERS)
-    psreg = (p.read64(CREG[cluster] + CLUSTER_PSTATE) & ~0x1f01f) | (1<<25) | to_pstate
+    psreg = ps_to_cmd(p.read64(CREG[cluster] + CLUSTER_PSTATE), to_pstate)
     tval = p.call(util.signal_and_write, CREG[cluster] + CLUSTER_PSTATE, psreg)
     p.smp_wait(cpu)
     
