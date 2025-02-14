@@ -123,13 +123,14 @@ class ISP:
         self.dart.initialize()
 
         self.isp_base = u.adt["/arm-io/isp"].get_reg(0)[0]  # 0x22a000000
-        self.pwr_base = u.adt["/arm-io/isp"].get_reg(1)[0]  # 0x23b700000
+        #self.pwr_base = u.adt["/arm-io/isp"].get_reg(1)[0]  # 0x23b700000
         self.isp_dart0_base = u.adt["/arm-io/dart-isp"].get_reg(0)[0]  # 0x22c0e8000
         self.isp_dart1_base = u.adt["/arm-io/dart-isp"].get_reg(1)[0]  # 0x22c0f4000
-        self.isp_dart2_base = u.adt["/arm-io/dart-isp"].get_reg(2)[0]  # 0x22c0fc000
+        #self.isp_dart2_base = u.adt["/arm-io/dart-isp"].get_reg(2)[0]  # 0x22c0fc000
 
         self.regs = ISPRegs(backend=self.u, base=self.isp_base)
-        self.ps = ISPPSRegs(backend=self.u, base=self.pwr_base)
+        #self.ps = ISPPSRegs(backend=self.u, base=self.pwr_base)
+        self.ps = 0
 
         self.asc = ISPASC(self)
         self.mmger = ISPMemoryManager(self)
@@ -213,6 +214,7 @@ class ISP:
         isp_dart1_base = self.isp_dart1_base
         isp_dart2_base = self.isp_dart2_base
 
+        """
         p.write32(isp_dart0_base + 0x100, 0x80)
         p.write32(isp_dart0_base + 0x13c, 0x100)
 
@@ -237,6 +239,7 @@ class ISP:
         p.mask32(isp_dart2_base + 0x6c, 0x0, 0x80808)
         p.write32(isp_dart2_base + 0x100, 0x80)
         p.write32(isp_dart2_base + 0x13c, 0x20000)
+        """
 
     def sync_ttbr(self):
         # Base ttbr is initialized after first iomap_at(), so copy it now
@@ -246,6 +249,8 @@ class ISP:
     def power_on(self):
         self.p.pmgr_adt_clocks_enable("/arm-io/isp")
         self.p.pmgr_adt_clocks_enable("/arm-io/dart-isp")
+        if not self.ps:
+             return
 
         # power domains, low -> high
         self.ps.ISP_PS_00 = 0xf
@@ -263,6 +268,8 @@ class ISP:
         self.ps.ISP_PS_60 = 0xf
 
     def power_off(self):
+        if not self.ps:
+             return
         # power domains, high -> low
         self.ps.ISP_PS_60 = 0x0
         self.ps.ISP_PS_58 = 0x0

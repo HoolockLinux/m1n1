@@ -4,7 +4,7 @@ import sys, pathlib
 sys.path.append(str(pathlib.Path(__file__).resolve().parents[1]))
 
 from m1n1.setup import *
-from m1n1.hw.dart import DART, DARTRegs
+from m1n1.hw.dart import DART
 from m1n1.hw.jpeg import *
 from m1n1.utils import *
 import argparse

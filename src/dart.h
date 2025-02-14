@@ -11,6 +11,7 @@
 typedef struct dart_dev dart_dev_t;
 
 enum dart_type_t {
+    DART_S5L8960X,
     DART_T8020,
     DART_T8110,
     DART_T6000,

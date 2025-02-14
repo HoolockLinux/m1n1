@@ -14,6 +14,8 @@ if len(sys.argv) > 1:
 else:
     dart_name = "dart-disp0"
 
+p.pmgr_adt_clocks_enable("/arm-io/" + dart_name)
+
 dart = DART.from_adt(u, "arm-io/" + dart_name)
 dart.dump_all()
 dart.dart.regs.dump_regs()
