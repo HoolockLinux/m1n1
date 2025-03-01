@@ -55,17 +55,8 @@ class PTE_S5L8960X(Register64):
     WPROTECT = 7
     VALID = 1, 0
 
-"""
-class R_CONFIG(Register32):
-    LOCK = 15
-
-class R_DAPF_LOCK(Register32):
-    LOCK = 0
-"""
-
 class DART8960Regs(RegMap):
     STREAM_COMMAND  = 0x0, R_STREAM_COMMAND
-    #STREAM_SELECT   = 0x34, Register32
     ERROR           = 0x10, R_ERROR
     ERROR_AXI_REQ0  = 0x14, Register32
     ERROR_AXI_REQ1  = 0x18, Register32
@@ -75,13 +66,6 @@ class DART8960Regs(RegMap):
     UNK2C           = 0x2c, Register32
     FETCH_CONFIG    = 0x30, Register32
     PERF_CONFIG     = 0x78, Register32
-    #ERROR_ADDR_HI   = 0x54, Register32
-    #CONFIG          = 0x60, R_CONFIG
-    #REMAP           = irange(0x80, 4, 4), R_REMAP
-
-    #DAPF_LOCK       = 0xf0, R_DAPF_LOCK
-    #UNK1            = 0xf8, Register32
-    #ENABLED_STREAMS = 0xfc, Register32
 
     TCR             = 0x0c, R_TCR
     TTBR            = (irange(0x40, 4, 16), range(0, 16, 4)), R_TTBR
@@ -127,13 +111,6 @@ class DART8960(Reloadable):
 
         if not (self.enabled_streams & (1 << stream)):
             self.enabled_streams |= (1 << stream)
-            #self.regs.ENABLED_STREAMS.val |= self.enabled_streams
-
-        #if tcr.BYPASS_DART and not tcr.TRANSLATE_ENABLE:
-        #    raise Exception("Stream is bypassed in DART")
-
-        #if tcr.BYPASS_DART or not tcr.TRANSLATE_ENABLE:
-        #    raise Exception(f"Unknown DART mode {tcr}")
 
         if addr & (self.PAGE_SIZE - 1):
             raise Exception(f"Unaligned PA {addr:#x}")
