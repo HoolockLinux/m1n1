@@ -9,6 +9,8 @@ from ..malloc import Heap
 from .dart8020 import DART8020, DART8020Regs
 from .dart8110 import DART8110, DART8110Regs
 from .dart8960 import DART8960, DART8960Regs
+from .dart8015 import DART8015, DART8015Regs
+
 
 __all__ = ["DART"]
 
@@ -28,6 +30,10 @@ class DART(Reloadable):
             self.dart = DART8960(iface, regs, util, compat)
             self.PAGE_BITS = 12
             self.PAGE_SIZE = 4096
+        elif compat in ["dart,t8015"]:
+            self.dart = DART8015(iface, regs, util)
+            self.PAGE_BITS = 12
+            self.PAGE_SIZE = 4096
         else:
             raise TypeError(compat)
 
@@ -41,6 +47,8 @@ class DART(Reloadable):
             regs = DART8110Regs(u, dart_addr)
         elif compat in ["dart,t8010", "dart,s8000", "dart,t7000", "dart,s5l8960x"]:
             regs = DART8960Regs(u, dart_addr)
+        elif compat in ["dart,t8015"]:
+            regs = DART8015Regs(u, dart_addr)
         return cls(u.iface, regs, u, compat, **kwargs)
 
     def ioread(self, stream, base, size):
@@ -102,7 +110,7 @@ class DART(Reloadable):
         self.dart.dump_device(idx)
 
     def dump_all(self):
-        if isinstance(self.dart, DART8960):
+        if isinstance(self.dart, DART8960) or isinstance(self.dart, DART8015):
             for i in range(4):
                 self.dump_device(i)
         else:
