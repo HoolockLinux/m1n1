@@ -34,6 +34,12 @@ class R_STREAM_COMMAND(Register32):
 class R_TCR_STREAM(Register8):
     TRANSLATE_ENABLE = 7
 
+class R_BYPASS_ADDR(Register32):
+    STREAM_3_OFFSET_35_32 = 27, 24
+    STREAM_2_OFFSET_35_32 = 19, 16
+    STREAM_1_OFFSET_35_32 = 11, 8
+    STREAM_0_OFFSET_35_32 = 3, 0
+
 class R_TCR(Register32):
     TCR_0 = 31, 24
     TCR_1 = 23, 16
@@ -63,9 +69,8 @@ class DART8960Regs(RegMap):
     DIAG_CONFIG     = 0x20, Register32
     UNK24           = 0x24, Register32
     ERROR_ADDR_LO   = 0x1c, Register32
-    UNK2C           = 0x2c, Register32
+    BYPASS_ADDR     = 0x2c, R_BYPASS_ADDR
     FETCH_CONFIG    = 0x30, Register32
-    PERF_CONFIG     = 0x78, Register32
 
     TCR             = 0x0c, R_TCR
     TTBR            = (irange(0x40, 4, 16), range(0, 16, 4)), R_TTBR
@@ -347,15 +352,18 @@ class DART8960(Reloadable):
     def dump_device(self, idx):
         assert(idx < 4)
         tcr_stream = R_TCR_STREAM((self.regs.TCR.val >> (idx * 8)) & 0xff)
+
         ttbrs = self.regs.TTBR[idx, :]
         print(f"dev {idx:02x}: TCR_{idx}={tcr_stream!s} TTBRs = [{', '.join(map(str, ttbrs))}]")
 
-        if self.regs.TCR.val & (1 << (7 + 8 * idx)):
+        if tcr_stream.TRANSLATE_ENABLE:
             print("  mode: TRANSLATE")
 
             for idx, ttbr in enumerate(ttbrs):
                 self.dump_ttbr(idx, ttbr.reg)
         else:
+            bypass_addr_stream = self.regs.BYPASS_ADDR.val >> (idx * 8) & 0xf
+            print(f"dev {idx:02x}: BYPASS_ADDR_35_32 = 0x{bypass_addr_stream}")
             print("  mode: BYPASS")
 
     def dump_params(self):
