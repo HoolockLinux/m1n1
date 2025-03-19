@@ -184,12 +184,13 @@ BUILD_FP_OBJS := $(patsubst %,build/%,$(FP_OBJECTS))
 BUILD_ALL_OBJS := $(BUILD_OBJS) $(BUILD_FP_OBJS)
 NAME := m1n1
 TARGET := m1n1.macho
+TARGET_IDEVICE := m1n1-idevice.macho
 TARGET_RAW := m1n1.bin
 
 DEPDIR := build/.deps
 
 .PHONY: all clean format invoke_cc always_rebuild
-all: build/$(TARGET) build/$(TARGET_RAW)
+all: build/$(TARGET) build/$(TARGET_IDEVICE) build/$(TARGET_RAW)
 clean:
 	rm -rf build/* build/.deps
 format:
@@ -234,11 +235,19 @@ build/$(NAME).elf: $(BUILD_ALL_OBJS) m1n1.ld
 	$(QUIET)echo "  LD    $@"
 	$(QUIET)$(LD) -T m1n1.ld $(LDFLAGS) -o $@ $(BUILD_ALL_OBJS)
 
+build/$(NAME)-idevice.elf: $(BUILD_ALL_OBJS) m1n1-idevice.ld
+	$(QUIET)echo "  LD    $@"
+	$(QUIET)$(LD) -T m1n1-idevice.ld $(LDFLAGS) -o $@ $(BUILD_ALL_OBJS)
+
 build/$(NAME)-raw.elf: $(BUILD_ALL_OBJS) m1n1-raw.ld
 	$(QUIET)echo "  LDRAW $@"
 	$(QUIET)$(LD) -T m1n1-raw.ld $(LDFLAGS) -o $@ $(BUILD_ALL_OBJS)
 
 build/$(NAME).macho: build/$(NAME).elf
+	$(QUIET)echo "  MACHO $@"
+	$(QUIET)$(OBJCOPY) -O binary --strip-debug $< $@
+
+build/$(NAME)-idevice.macho: build/$(NAME)-idevice.elf
 	$(QUIET)echo "  MACHO $@"
 	$(QUIET)$(OBJCOPY) -O binary --strip-debug $< $@
 
