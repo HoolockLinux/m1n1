@@ -209,7 +209,7 @@ static void nvme_poll_rtkit(void)
             return;
         }
 
-        //printf("nvme->smc: 0x%016lx\n", msg.msg);
+        // printf("nvme->smc: 0x%016lx\n", msg.msg);
 
         smc_send_smi(smc, msg.msg);
         smc_poll(smc);
@@ -400,7 +400,7 @@ static void nvme_send_smi(u64 msg)
         .msg = msg,
     };
 
-    //printf("smc->nvme: 0x%016lx\n", msg);
+    // printf("smc->nvme: 0x%016lx\n", msg);
 
     rtkit_send(nvme_rtkit, &rtk_msg);
     nvme_poll_rtkit();
@@ -438,7 +438,7 @@ static bool nvme_init_recv(rtkit_dev_t *rtk, struct rtkit_message *msg)
     if (msg->ep != smi_ep)
         printf("nvme: Message to unexpected endpoint %d during init\n", msg->ep);
 
-    //printf("nvme->smc: 0x%016lx\n", msg->msg);
+    // printf("nvme->smc: 0x%016lx\n", msg->msg);
 
     smc_send_smi(smc, msg->msg);
     smc_poll(smc);
