@@ -6,9 +6,9 @@ name: build
 on:
   # Triggers the workflow on push or pull request events but only for the main branch
   push:
-    branches: [ main ]
+    branches: [ main, idevice ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, idevice ]
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
@@ -40,4 +40,6 @@ jobs:
           name: m1n1
           path: |
             build/m1n1.macho
+            build/m1n1-idevice.macho
+            build/monitor-stub.macho
             build/m1n1.bin
