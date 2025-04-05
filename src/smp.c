@@ -215,6 +215,33 @@ static void smp_stop_cpu(int index, int die, int cluster, int core, u64 impl, u6
     }
 }
 
+static u64 smp_get_iorvbar(int node, int cpu)
+{
+    u64 cpu_impl_reg[2];
+
+    if (ADT_GETPROP_ARRAY(adt, node, "cpu-impl-reg", cpu_impl_reg) >= 0)
+        return cpu_impl_reg[0];
+
+    if (ADT_GETPROP(adt, node, "reg-private", &cpu_impl_reg[0]) >= 0)
+        return (cpu_impl_reg[0] + 0x40000);
+
+    int arm_io_node;
+    if ((arm_io_node = adt_path_offset(adt, "/arm-io")) < 0) {
+        printf("smp: Error getting /arm-io node\n");
+        return 0;
+    }
+
+    u32 reg_len;
+    const u64 *regs = adt_getprop(adt, arm_io_node, "reg", &reg_len);
+    if (!regs)
+        return 0;
+    u32 index = 2 * cpu + 2;
+    if (reg_len < index)
+        return 0;
+
+    return regs[0];
+}
+
 void smp_start_secondaries(void)
 {
     printf("Starting secondary CPUs...\n");
@@ -227,12 +254,6 @@ void smp_start_secondaries(void)
     }
     if (adt_get_reg(adt, pmgr_path, "reg", 0, &pmgr_reg, NULL) < 0) {
         printf("Error getting /arm-io/pmgr regs\n");
-        return;
-    }
-
-    int arm_io_node;
-    if ((arm_io_node = adt_path_offset(adt, "/arm-io")) < 0) {
-        printf("Error getting /arm-io node\n");
         return;
     }
 
@@ -341,27 +362,21 @@ void smp_start_secondaries(void)
             continue;
 
         u32 reg;
-        u64 cpu_impl_reg[2];
+        u64 iorvbar = smp_get_iorvbar(cpu_node, i);
+
+        if (!iorvbar)
+            continue;
+
         if (ADT_GETPROP(adt, cpu_node, "reg", &reg) < 0)
             continue;
-        if (ADT_GETPROP_ARRAY(adt, cpu_node, "cpu-impl-reg", cpu_impl_reg) < 0) {
-            u32 reg_len;
-            const u64 *regs = adt_getprop(adt, arm_io_node, "reg", &reg_len);
-            if (!regs)
-                continue;
-            u32 index = 2 * i + 2;
-            if (reg_len < index)
-                continue;
-            memcpy(cpu_impl_reg, &regs[index], 16);
-        }
 
         if (i == boot_cpu_idx) {
             // Check if already locked
-            if (read64(cpu_impl_reg[0]) & 1)
+            if (read64(iorvbar) & 1)
                 continue;
 
             // Unlocked, write _vectors_start into boot CPU's rvbar
-            write64(cpu_impl_reg[0], (u64)_vectors_start);
+            write64(iorvbar, (u64)_vectors_start);
             sysop("dmb sy");
 
             continue;
@@ -371,18 +386,14 @@ void smp_start_secondaries(void)
         u8 cluster = FIELD_GET(CPU_REG_CLUSTER, reg);
         u8 die = FIELD_GET(CPU_REG_DIE, reg);
 
-        smp_start_cpu(i, die, cluster, core, cpu_impl_reg[0], pmgr_reg + cpu_start_off);
+        smp_start_cpu(i, die, cluster, core, iorvbar, pmgr_reg + cpu_start_off);
     }
 }
 
 void smp_stop_secondaries(bool deep_sleep)
 {
     printf("Stopping secondary CPUs...\n");
-    int arm_io_node;
-    if ((arm_io_node = adt_path_offset(adt, "/arm-io")) < 0) {
-        printf("Error getting /arm-io node\n");
-        return;
-    }
+
     smp_set_wfe_mode(true);
 
     for (int i = 0; i < MAX_CPUS; i++) {
@@ -392,25 +403,16 @@ void smp_stop_secondaries(bool deep_sleep)
             continue;
 
         u32 reg;
-        u64 cpu_impl_reg[2];
+        u64 iorvbar = smp_get_iorvbar(node, i);
+
         if (ADT_GETPROP(adt, node, "reg", &reg) < 0)
             continue;
-        if (ADT_GETPROP_ARRAY(adt, node, "cpu-impl-reg", cpu_impl_reg) < 0) {
-            u32 reg_len;
-            const u64 *regs = adt_getprop(adt, arm_io_node, "reg", &reg_len);
-            if (!regs)
-                continue;
-            u32 index = 2 * i + 2;
-            if (reg_len < index)
-                continue;
-            memcpy(cpu_impl_reg, &regs[index], 16);
-        }
 
         u8 core = FIELD_GET(CPU_REG_CORE, reg);
         u8 cluster = FIELD_GET(CPU_REG_CLUSTER, reg);
         u8 die = FIELD_GET(CPU_REG_DIE, reg);
 
-        smp_stop_cpu(i, die, cluster, core, cpu_impl_reg[0], pmgr_reg + cpu_start_off, deep_sleep);
+        smp_stop_cpu(i, die, cluster, core, iorvbar, pmgr_reg + cpu_start_off, deep_sleep);
     }
 }
 
