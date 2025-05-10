@@ -107,7 +107,6 @@ asc_dev_t *asc_init(const char *path)
     }
 
     asc->iop_node = adt_first_child_offset(adt, node);
-    asc->cpu_base = base;
     asc->base = base + 0x8000;
 
     // clear32(base + ASC_CPU_CONTROL, ASC_CPU_CONTROL_START);
