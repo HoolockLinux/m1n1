@@ -30,6 +30,8 @@
 #include "wdt.h"
 #include "xnuboot.h"
 
+#include "smc.h"
+
 struct vector_args next_stage;
 
 const char version_tag[] = "##m1n1_ver##" BUILD_TAG;
@@ -134,6 +136,7 @@ void run_actions(void)
 #endif
 
     printf("Running proxy...\n");
+    smc_init();
 
     uartproxy_run(NULL);
 }
