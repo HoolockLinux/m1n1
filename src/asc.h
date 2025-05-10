@@ -10,6 +10,12 @@ struct asc_message {
     u32 msg1;
 };
 
+enum asc_type {
+    T8015_IOP_ANS2,
+    T8015_IOP,
+    ASCWRAP_V4,
+};
+
 typedef struct asc_dev asc_dev_t;
 
 asc_dev_t *asc_init(const char *path);
