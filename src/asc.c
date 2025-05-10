@@ -3,6 +3,7 @@
 #include "adt.h"
 #include "asc.h"
 #include "malloc.h"
+#include "string.h"
 #include "utils.h"
 
 #define ASC_CPU_CONTROL       0x44
@@ -23,9 +24,15 @@
 #define ASC_MBOX_I2A_RECV0   0x830
 #define ASC_MBOX_I2A_RECV1   0x838
 
+#define ASC_MBOX_A2I_CONTROL_MARIN 0x108
+#define ASC_MBOX_I2A_CONTROL_MARIN 0x10c
+
 struct asc_dev {
     uintptr_t cpu_base;
     uintptr_t base;
+    enum asc_type type;
+    uint32_t a2i_control;
+    uint32_t i2a_control;
     int iop_node;
 };
 
@@ -48,6 +55,37 @@ asc_dev_t *asc_init(const char *path)
     if (!asc)
         return NULL;
 
+    if (adt_is_compatible(adt, node, "iop-ans2,t8015"))
+        asc->type = T8015_IOP_ANS2;
+    else if (adt_is_compatible(adt, node, "iop,t8015") && !strcmp("/arm-io/sep", path))
+        asc->type = T8015_IOP_SEP;
+    else if (adt_is_compatible(adt, node, "iop,t8015"))
+        asc->type = IOP_KF;
+    else
+        asc->type = ASCWRAP_V4;
+
+    switch (asc->type) {
+        case T8015_IOP_ANS2:
+            asc->a2i_control = ASC_MBOX_A2I_CONTROL_MARIN;
+            asc->i2a_control = ASC_MBOX_A2I_CONTROL_MARIN;
+
+            if (adt_get_reg(adt, asc_path, "reg", 1, (u64 *)&asc->cpu_base, NULL) < 0) {
+                printf("asc: Error getting T8015 ANS2 %s CPU base address.\n", path);
+                return NULL;
+            }
+            break;
+        case T8015_IOP_SEP:
+            asc->a2i_control = ASC_MBOX_A2I_CONTROL_MARIN;
+            asc->i2a_control = ASC_MBOX_A2I_CONTROL_MARIN;
+            asc->cpu_base = 0;
+            break;
+        case ASCWRAP_V4:
+            asc->a2i_control = ASC_MBOX_A2I_CONTROL;
+            asc->i2a_control = ASC_MBOX_I2A_CONTROL;
+            asc->cpu_base = base;
+            break;
+    }
+
     asc->iop_node = adt_first_child_offset(adt, node);
     asc->cpu_base = base;
     asc->base = base + 0x8000;
@@ -68,22 +106,28 @@ int asc_get_iop_node(asc_dev_t *asc)
 
 void asc_cpu_start(asc_dev_t *asc)
 {
+    if (!asc->cpu_base)
+        return;
     set32(asc->cpu_base + ASC_CPU_CONTROL, ASC_CPU_CONTROL_START);
 }
 
 void asc_cpu_stop(asc_dev_t *asc)
 {
+    if (!asc->cpu_base)
+        return;
     clear32(asc->cpu_base + ASC_CPU_CONTROL, ASC_CPU_CONTROL_START);
 }
 
 bool asc_cpu_running(asc_dev_t *asc)
 {
+    if (!asc->cpu_base)
+        return true;
     return read32(asc->cpu_base + ASC_CPU_CONTROL) & ASC_CPU_CONTROL_START;
 }
 
 bool asc_can_recv(asc_dev_t *asc)
 {
-    return !(read32(asc->base + ASC_MBOX_I2A_CONTROL) & ASC_MBOX_CONTROL_EMPTY);
+    return !(read32(asc->base + asc->i2a_control) & ASC_MBOX_CONTROL_EMPTY);
 }
 
 bool asc_recv(asc_dev_t *asc, struct asc_message *msg)
@@ -112,12 +156,12 @@ bool asc_recv_timeout(asc_dev_t *asc, struct asc_message *msg, u32 delay_usec)
 
 bool asc_can_send(asc_dev_t *asc)
 {
-    return !(read32(asc->base + ASC_MBOX_A2I_CONTROL) & ASC_MBOX_CONTROL_FULL);
+    return !(read32(asc->base + asc->a2i_control) & ASC_MBOX_CONTROL_FULL);
 }
 
 bool asc_send(asc_dev_t *asc, const struct asc_message *msg)
 {
-    if (poll32(asc->base + ASC_MBOX_A2I_CONTROL, ASC_MBOX_CONTROL_FULL, 0, 200000)) {
+    if (poll32(asc->base + asc->a2i_control, ASC_MBOX_CONTROL_FULL, 0, 200000)) {
         printf("asc: A2I mailbox full for 200ms. Is the ASC stuck?");
         return false;
     }
