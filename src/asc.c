@@ -27,12 +27,17 @@
 #define ASC_MBOX_A2I_CONTROL_MARIN 0x108
 #define ASC_MBOX_I2A_CONTROL_MARIN 0x10c
 
+#define KF_CPU_CONTROL          0x0
+#define KF_CPU_CONTROL_START    0x1
+
 struct asc_dev {
     uintptr_t cpu_base;
     uintptr_t base;
     enum asc_type type;
     uint32_t a2i_control;
     uint32_t i2a_control;
+    uint32_t cpu_control;
+    uint32_t cpu_control_start;
     int iop_node;
 };
 
@@ -60,7 +65,7 @@ asc_dev_t *asc_init(const char *path)
     else if (adt_is_compatible(adt, node, "iop,t8015") && !strcmp("/arm-io/sep", path))
         asc->type = T8015_IOP_SEP;
     else if (adt_is_compatible(adt, node, "iop,t8015"))
-        asc->type = IOP_KF;
+        asc->type = T8015_IOP;
     else
         asc->type = ASCWRAP_V4;
 
@@ -68,6 +73,8 @@ asc_dev_t *asc_init(const char *path)
         case T8015_IOP_ANS2:
             asc->a2i_control = ASC_MBOX_A2I_CONTROL_MARIN;
             asc->i2a_control = ASC_MBOX_A2I_CONTROL_MARIN;
+            asc->cpu_control = ASC_CPU_CONTROL;
+            asc->cpu_control_start = ASC_CPU_CONTROL;
 
             if (adt_get_reg(adt, asc_path, "reg", 1, (u64 *)&asc->cpu_base, NULL) < 0) {
                 printf("asc: Error getting T8015 ANS2 %s CPU base address.\n", path);
@@ -79,9 +86,22 @@ asc_dev_t *asc_init(const char *path)
             asc->i2a_control = ASC_MBOX_A2I_CONTROL_MARIN;
             asc->cpu_base = 0;
             break;
+        case T8015_IOP:
+            asc->a2i_control = ASC_MBOX_A2I_CONTROL_MARIN;
+            asc->i2a_control = ASC_MBOX_A2I_CONTROL_MARIN;
+            asc->cpu_control = KF_CPU_CONTROL;
+            asc->cpu_control_start = KF_CPU_CONTROL_START;
+
+            if (adt_get_reg(adt, asc_path, "reg", 2, (u64 *)&asc->cpu_base, NULL) < 0) {
+                printf("asc: Error getting T8015 IOP %s CPU base address.\n", path);
+                return NULL;
+            }
+            break;
         case ASCWRAP_V4:
             asc->a2i_control = ASC_MBOX_A2I_CONTROL;
             asc->i2a_control = ASC_MBOX_I2A_CONTROL;
+            asc->cpu_control = ASC_CPU_CONTROL;
+            asc->cpu_control_start = ASC_CPU_CONTROL;
             asc->cpu_base = base;
             break;
     }
@@ -108,21 +128,21 @@ void asc_cpu_start(asc_dev_t *asc)
 {
     if (!asc->cpu_base)
         return;
-    set32(asc->cpu_base + ASC_CPU_CONTROL, ASC_CPU_CONTROL_START);
+    set32(asc->cpu_base + asc->cpu_control, asc->cpu_control_start);
 }
 
 void asc_cpu_stop(asc_dev_t *asc)
 {
     if (!asc->cpu_base)
         return;
-    clear32(asc->cpu_base + ASC_CPU_CONTROL, ASC_CPU_CONTROL_START);
+    clear32(asc->cpu_base + asc->cpu_control, asc->cpu_control_start);
 }
 
 bool asc_cpu_running(asc_dev_t *asc)
 {
     if (!asc->cpu_base)
         return true;
-    return read32(asc->cpu_base + ASC_CPU_CONTROL) & ASC_CPU_CONTROL_START;
+    return read32(asc->cpu_base + asc->cpu_control) & asc->cpu_control_start;
 }
 
 bool asc_can_recv(asc_dev_t *asc)

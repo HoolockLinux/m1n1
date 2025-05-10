@@ -13,6 +13,7 @@ struct asc_message {
 enum asc_type {
     T8015_IOP_ANS2,
     T8015_IOP_SEP,
+    T8015_IOP,
     ASCWRAP_V4
 };
 
