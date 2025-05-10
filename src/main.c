@@ -136,7 +136,6 @@ void run_actions(void)
 #endif
 
     printf("Running proxy...\n");
-    smc_init();
 
     uartproxy_run(NULL);
 }
