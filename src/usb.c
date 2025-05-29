@@ -15,6 +15,7 @@
 #include "usb_dwc2.h"
 #include "usb_dwc3.h"
 #include "usb_dwc3_regs.h"
+#include "usb_types.h"
 #include "utils.h"
 #include "vsprintf.h"
 
@@ -257,123 +258,70 @@ void usb_spmi_init(void)
     usb_is_initialized = true;
 }
 
-int usb_complex_init(void)
+int usb_complex_init(struct usb_complex_config *config)
 {
-    // bring_up, we do have one usb port
-    int otgphyctrl_path[8], usbComplex_path[8];
-    u64 USBComplexBase, USBComplex_OTGBase = 0, DWC2Base;
-
     usb_type = USB_TYPE_DWC2;
 
-    adt_path_offset_trace(adt, "/arm-io/usb-complex", usbComplex_path);
-
-    int otgctl_offset = adt_path_offset_trace(adt, "/arm-io/otgphyctrl", otgphyctrl_path);
-
-    for (uint32_t i = 0, max = 2; i < max; ++i) {
-        u64 ctlsize, ctlbase;
-        if (adt_get_reg(adt, otgphyctrl_path, "reg", i, &ctlbase, &ctlsize) < 0) {
-            printf("usb: failed to get /arm-io/otgphyctrl reg\n");
-            return -1;
-        }
-        if (ctlsize == 0x20) {
-            USBComplex_OTGBase = ctlbase;
+    // based on ADT's /arm-io/usb-complex usb_widget, we actually want to remap most stuff
+    // here since Linux can't do 64-bit EHCI
+    switch (config->type) {
+        case USBCOMPLEX_S5L8960X:
+            write32(config->USBComplexBase + USBX_EHCI0_REMAP_CTL_S5L8960X,
+                    USBX_REMAP_TO_DRAM_BITS_S5L8960X);
+            write32(config->USBComplexBase + USBX_EHCI1_REMAP_CTL_S5L8960X,
+                    USBX_REMAP_TO_DRAM_BITS_S5L8960X);
+            write32(config->USBComplexBase + USBX_USBDEV_REMAP_CTL_S5L8960X,
+                    USBX_REMAP_TO_DRAM_BITS_S5L8960X);
+            write32(config->USBComplexBase + USBX_OHCI0_REMAP_CTL_S5L8960X,
+                    USBX_REMAP_TO_DRAM_BITS_S5L8960X);
             break;
-        }
-    }
-
-    if (!USBComplex_OTGBase) {
-        printf("usb: failed to parse /arm-io/otgphyctrl reg\n");
-        return -1;
-    }
-
-    if (adt_get_reg(adt, usbComplex_path, "reg", 0, &USBComplexBase, NULL) < 0) {
-        printf("usb: Error getting USBComplexBase Reg\n");
-        return -1;
-    }
-
-    // Can't trust ADT /arm-io/usb-complex/usb-device , it is some usb3 on A10X and we want dwc2
-    DWC2Base = (USBComplex_OTGBase & ~0xfffULL) + 0x00100000;
-
-    // USB complex
-    pmgr_power_on(0, "USB");
-
-    // USB complex OTG control registers
-    pmgr_power_on(0, "USBCTLREG");
-    pmgr_power_on(0, "USBCTRL");
-
-    // DWC2 device
-    pmgr_power_on(0, "USBOTG");
-    pmgr_power_on(0, "USBDEV");
-    pmgr_power_on(0, "USB2DEV");
-
-    pmgr_reset(0, "USB");
-
-    pmgr_reset(0, "USBCTLREG");
-    pmgr_reset(0, "USBCTRL");
-
-    pmgr_reset(0, "USBOTG");
-    pmgr_reset(0, "USBDEV");
-    pmgr_reset(0, "USB2DEV");
-
-    u32 cfg0, cfg1;
-    if (ADT_GETPROP(adt, otgctl_offset, "cfg0-device", &cfg0) < 0) {
-        printf("usb: Error getting CFG0 from otgctl \n");
-        return -1;
-    }
-    if (ADT_GETPROP(adt, otgctl_offset, "cfg1-device", &cfg1) < 0) {
-        printf("usb: Error getting CFG1 from otgctl \n");
-        return -1;
-    }
-
-    // Derived from ADT usb_widget, however that property is not usable as-is
-    switch (chip_id) {
-        case T8011:
-            write32(USBComplexBase + USBX_CTL_T8011, USBX_CTL_EN_T8011);
-            write32(USBComplexBase + USBX_USB2DEV_REMAP_CTL_T8011, USBX_REMAP_TO_DRAM_BITS_T8011);
-            write32(USBComplexBase + USBX_EHCI_REMAP_CTL_T8011, USBX_REMAP_TO_DRAM_BITS_T8011);
+        case USBCOMPLEX_T8011:
+            write32(config->USBComplexBase + USBX_CTL_T8011, USBX_CTL_EN_T8011);
+            write32(config->USBComplexBase + USBX_USB2DEV_REMAP_CTL_T8011,
+                    USBX_REMAP_TO_DRAM_BITS_T8011);
+            write32(config->USBComplexBase + USBX_EHCI_REMAP_CTL_T8011,
+                    USBX_REMAP_TO_DRAM_BITS_T8011);
             break;
-        case T8015:
-            write32(USBComplexBase + USBX_CTL_T8011, USBX_CTL_EN_T8011);
-            write32(USBComplexBase + USBX_EHCI0_REMAP_CTL_T8015, USBX_REMAP_TO_DRAM_BITS_T8011);
-            write32(USBComplexBase + USBX_OHCI0_REMAP_CTL_T8015, USBX_REMAP_TO_DRAM_BITS_T8011);
-            write32(USBComplexBase + USBX_EHCI1_REMAP_CTL_T8015, USBX_REMAP_TO_DRAM_BITS_T8011);
-            write32(USBComplexBase + USBX_USBDEV_REMAP_CTL_T8015, USBX_REMAP_TO_DRAM_BITS_T8011);
+        case USBCOMPLEX_T8015:
+            write32(config->USBComplexBase + USBX_CTL_T8011, USBX_CTL_EN_T8011);
+            write32(config->USBComplexBase + USBX_EHCI0_REMAP_CTL_T8015,
+                    USBX_REMAP_TO_DRAM_BITS_T8011);
+            write32(config->USBComplexBase + USBX_OHCI0_REMAP_CTL_T8015,
+                    USBX_REMAP_TO_DRAM_BITS_T8011);
+            write32(config->USBComplexBase + USBX_EHCI1_REMAP_CTL_T8015,
+                    USBX_REMAP_TO_DRAM_BITS_T8011);
+            write32(config->USBComplexBase + USBX_USBDEV_REMAP_CTL_T8015,
+                    USBX_REMAP_TO_DRAM_BITS_T8011);
             break;
         default:
-            write32(USBComplexBase + USBX_EHCI0_REMAP_CTL_S5L8960X,
-                    USBX_REMAP_TO_DRAM_BITS_S5L8960X);
-            write32(USBComplexBase + USBX_EHCI1_REMAP_CTL_S5L8960X,
-                    USBX_REMAP_TO_DRAM_BITS_S5L8960X);
-            write32(USBComplexBase + USBX_USBDEV_REMAP_CTL_S5L8960X,
-                    USBX_REMAP_TO_DRAM_BITS_S5L8960X);
-            write32(USBComplexBase + USBX_OHCI0_REMAP_CTL_S5L8960X,
-                    USBX_REMAP_TO_DRAM_BITS_S5L8960X);
-            break;
+            printf("usb: Unsupported complex type!\n");
+            return -1;
     }
-    write32(USBComplex_OTGBase + USBX_OTG_CFG0, cfg0);
-    write32(USBComplex_OTGBase + USBX_OTG_CFG1, cfg1);
 
-    set32(USBComplex_OTGBase + USBX_OTG_CTL, USBX_OTG_CTL_RESET);
+    write32(config->USB2Phy_Base + USBX_OTG_CFG0, config->cfg0_device);
+    write32(config->USB2Phy_Base + USBX_OTG_CFG1, config->cfg1_device);
+
+    set32(config->USB2Phy_Base + USBX_OTG_CTL, USBX_OTG_CTL_RESET);
 
     udelay(20);
-    clear32(USBComplex_OTGBase + USBX_OTG_CTL, USBX_OTG_CTL_PWRDOWN | USBX_OTG_CTL_SIDDQ);
+    clear32(config->USB2Phy_Base + USBX_OTG_CTL, USBX_OTG_CTL_PWRDOWN | USBX_OTG_CTL_SIDDQ);
     udelay(20);
-    clear32(USBComplex_OTGBase + USBX_OTG_CTL, USBX_OTG_CTL_RESET);
+    clear32(config->USB2Phy_Base + USBX_OTG_CTL, USBX_OTG_CTL_RESET);
     udelay(20);
-    clear32(USBComplex_OTGBase + USBX_OTG_SIG, USBX_OTG_SIG_VBUSDET_FORCE_EN);
+    clear32(config->USB2Phy_Base + USBX_OTG_SIG, USBX_OTG_SIG_VBUSDET_FORCE_EN);
     udelay(1500);
 
     dwc2_dev_t *opaque;
     struct iodev *usb_iodev;
 
-    opaque = usb_dwc2_init(DWC2Base);
+    opaque = usb_dwc2_init(config->DWC2Base);
     if (!opaque)
         return -1;
 
     usb_iodev = memalign(SPINLOCK_ALIGN, sizeof(*usb_iodev));
     if (!usb_iodev)
         return -1;
-    set32(USBComplex_OTGBase + USBX_OTG_SIG, USBX_OTG_SIG_VBUSDET_FORCE_EN);
+    set32(config->USB2Phy_Base + USBX_OTG_SIG, USBX_OTG_SIG_VBUSDET_FORCE_EN);
     usb_iodev->ops = &iodev_usb_dwc2_ops;
     usb_iodev->opaque = opaque;
     usb_iodev->usage = USAGE_CONSOLE | USAGE_UARTPROXY;
@@ -385,6 +333,94 @@ int usb_complex_init(void)
     usb_is_initialized = true;
 
     return 0;
+}
+
+int usb_complex_init_adt(void)
+{
+    int otgphyctrl_path[8], usbComplex_path[8];
+    int usbComplex_offset, otgctl_offset;
+    enum usb_complex_type type;
+    u64 USBComplexBase, USB2Phy_Base = 0, DWC2Base;
+
+    usbComplex_offset = adt_path_offset_trace(adt, "/arm-io/usb-complex", usbComplex_path);
+
+    if (usbComplex_offset < 0)
+        return -1;
+
+    otgctl_offset = adt_path_offset_trace(adt, "/arm-io/otgphyctrl", otgphyctrl_path);
+    if (otgctl_offset < 0) {
+        printf("usb: No /arm-io/otgphyctrl node \n");
+        return -1;
+    }
+
+    for (uint32_t i = 0, max = 2; i < max; ++i) {
+        u64 ctlsize, ctlbase;
+        if (adt_get_reg(adt, otgphyctrl_path, "reg", i, &ctlbase, &ctlsize) < 0) {
+            printf("usb: failed to get /arm-io/otgphyctrl reg\n");
+            return -1;
+        }
+        if (ctlsize == 0x20) {
+            USB2Phy_Base = ctlbase;
+            break;
+        }
+    }
+
+    if (!USB2Phy_Base) {
+        printf("usb: failed to parse /arm-io/otgphyctrl reg\n");
+        return -1;
+    }
+
+    if (adt_get_reg(adt, usbComplex_path, "reg", 0, &USBComplexBase, NULL) < 0) {
+        printf("usb: Error getting USBComplexBase Reg\n");
+        return -1;
+    }
+
+    u32 cfg0, cfg1;
+    if (ADT_GETPROP(adt, otgctl_offset, "cfg0-device", &cfg0) < 0) {
+        printf("usb: Error getting CFG0 from otgctl \n");
+        return -1;
+    }
+    if (ADT_GETPROP(adt, otgctl_offset, "cfg1-device", &cfg1) < 0) {
+        printf("usb: Error getting CFG1 from otgctl \n");
+        return -1;
+    }
+
+    // the usb-device on iPad Pro 2 is some USB3 device so derive dwc2 base from phy base instead
+    DWC2Base = (USB2Phy_Base & ~0xfffULL) + 0x100000;
+
+    if (adt_is_compatible(adt, usbComplex_offset, "usb-complex,s5l8960x")) {
+        type = USBCOMPLEX_S5L8960X;
+    } else if (adt_is_compatible(adt, usbComplex_offset, "usb-complex,t8015")) {
+        type = USBCOMPLEX_T8015;
+    }
+    // This must be last because of the fallback compatible to usb-complex,t8011 on t8015
+    else if (adt_is_compatible(adt, usbComplex_offset, "usb-complex,t8011")) {
+        type = USBCOMPLEX_T8011;
+    } else {
+        printf("usb: unsupported USB complex type!\n");
+        return -1;
+    }
+
+    if (pmgr_adt_power_enable_index("/arm-io/usb-complex", 0) < 0) {
+        printf("usb: could not enable /arm-io/usb-complex power domain 0\n");
+        return -1;
+    }
+
+    if (pmgr_adt_power_enable_index("/arm-io/usb-complex", 1) < 0) {
+        printf("usb: could not enable /arm-io/usb-complex power domain 1\n");
+        return -1;
+    }
+
+    struct usb_complex_config config = {
+        .USBComplexBase = USBComplexBase,
+        .USB2Phy_Base = USB2Phy_Base,
+        .DWC2Base = DWC2Base,
+        .cfg0_device = cfg0,
+        .cfg1_device = cfg1,
+        .type = type,
+    };
+
+    return usb_complex_init(&config);
 }
 
 void usb_init(void)
@@ -409,7 +445,7 @@ void usb_init(void)
      */
     if (adt_path_offset(adt, "/arm-io/otgphyctrl") > 0 &&
         adt_path_offset(adt, "/arm-io/usb-complex") > 0) {
-        usb_complex_init();
+        usb_complex_init_adt();
         return;
     }
 
@@ -511,8 +547,7 @@ void usb_iodev_shutdown(void)
             continue;
 
         printf("USB%d: shutdown\n", i);
-        if (adt_path_offset(adt, "/arm-io/otgphyctrl") > 0 &&
-            adt_path_offset(adt, "/arm-io/usb-complex") > 0) {
+        if (usb_type == USB_TYPE_DWC2) {
             usb_dwc2_shutdown(usb_iodev->opaque);
             return;
         } else {
