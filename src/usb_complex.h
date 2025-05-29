@@ -91,4 +91,19 @@
 #define USBX_OTG_CFG0 0x08
 #define USBX_OTG_CFG1 0x0c
 
+enum usb_complex_type {
+    USBCOMPLEX_S5L8960X,
+    USBCOMPLEX_T8011,
+    USBCOMPLEX_T8015,
+};
+
+struct usb_complex_config {
+    u64 USBComplexBase;
+    u64 USB2Phy_Base;
+    u64 DWC2Base;
+    u32 cfg0_device;
+    u32 cfg1_device;
+    enum usb_complex_type type;
+};
+
 #endif
