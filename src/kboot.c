@@ -1242,6 +1242,51 @@ static int dt_set_acio_tunables(void)
     return 0;
 }
 
+static int dt_copy_ausb_tunable(int adt_node, int fdt_node, char *name)
+{
+    u32 cfg;
+    char fdt_name[32];
+
+    snprintf(fdt_name, 32, "apple,%s", name);
+
+    if (adt_getprop_copy(adt, adt_node, name, &cfg, sizeof(u32)) < 0)
+        bail("ADT: Could not get cfg0-device property\n");
+
+    if (fdt_setprop_u32(dt, fdt_node, fdt_name, cfg))
+        bail("FDT: Could not set property %s\n", fdt_name);
+
+    return 0;
+}
+
+static int dt_set_ausb_tunables(void)
+{
+    const char *fdt_path = fdt_get_alias(dt, "ausbphy0");
+    if (!fdt_path)
+        return 0;
+
+    int fdt_node = fdt_path_offset(dt, fdt_path);
+    if (fdt_node < 0)
+        bail("FDT: Unable to find node for path %s from alias ausbphy0", fdt_path);
+
+    int adt_node = adt_path_offset(adt, "/arm-io/otgphyctrl");
+    if (adt_node < 0)
+        bail("ADT: Could not get /arm-io/otgphyctrl path\n");
+
+    if (dt_copy_ausb_tunable(adt_node, fdt_node, "cfg0-device"))
+        return -1;
+
+    if (dt_copy_ausb_tunable(adt_node, fdt_node, "cfg1-device"))
+        return -1;
+
+    if (dt_copy_ausb_tunable(adt_node, fdt_node, "cfg0-host"))
+        return -1;
+
+    if (dt_copy_ausb_tunable(adt_node, fdt_node, "cfg1-host"))
+        return -1;
+
+    return 0;
+}
+
 static const struct adt_tunable_info pciec_tunables[] = {
     {"atc-apcie-debug-tunables", "apple,tunable-debug", 0, 0x2000, true},
     {"atc-apcie-fabric-tunables", "apple,tunable-fabric", 0, 0x4000, true},
@@ -2680,6 +2725,8 @@ int kboot_prepare_dt(void *fdt)
     if (dt_set_uboot())
         return -1;
     if (kboot_setup_atc(dt))
+        return -1;
+    if (dt_set_ausb_tunables())
         return -1;
     if (dt_set_acio_tunables())
         return -1;
