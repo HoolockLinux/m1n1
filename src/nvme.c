@@ -13,7 +13,9 @@
 #define NVME_TIMEOUT          1000000
 #define NVME_ENABLE_TIMEOUT   5000000
 #define NVME_SHUTDOWN_TIMEOUT 5000000
-#define NVME_QUEUE_SIZE       64
+
+#define NVME_QUEUE_SIZE_T8015 0x10
+#define NVME_QUEUE_SIZE_T8103 0x40
 
 #define NVME_CC            0x14
 #define NVME_CC_SHN        GENMASK(15, 14)
@@ -33,7 +35,9 @@
 #define NVME_ASQ 0x28
 #define NVME_ACQ 0x30
 
+#define NVME_DB_ASQ  0x1000
 #define NVME_DB_ACQ  0x1004
+#define NVME_DB_IOSQ 0x1008
 #define NVME_DB_IOCQ 0x100c
 
 #define NVME_BOOT_STATUS    0x1300
@@ -66,6 +70,8 @@
 
 #define NVMMU_TCB_DMA_FROM_DEVICE BIT(0)
 #define NVMMU_TCB_DMA_TO_DEVICE   BIT(1)
+
+#define NVME_IOSQES_128 128
 
 struct nvme_command {
     u8 opcode;
@@ -114,6 +120,7 @@ struct nvme_queue {
 
     u8 cq_head;
     u8 cq_phase;
+    u8 sq_tail;
 
     bool adminq;
 };
@@ -123,8 +130,9 @@ static_assert(sizeof(struct nvme_completion) == 16, "invalid nvme_completion siz
 static_assert(sizeof(struct apple_nvmmu_tcb) == 128, "invalid apple_nvmmu_tcb size");
 
 static enum {
-    NVME_T8103 = 0,
-    NVME_T8132 = 1,
+    NVME_T8015 = 2,
+    NVME_T8103 = 4,
+    NVME_T8132 = 5,
 } nvme_type;
 
 static bool nvme_initialized = false;
@@ -136,36 +144,47 @@ static sart_dev_t *nvme_sart = NULL;
 
 static u64 nvme_base;
 static u64 nvmmu_base;
+static u8 nvme_queue_size;
 
 static struct nvme_queue adminq, ioq;
 
-static bool alloc_queue(struct nvme_queue *q)
+static bool alloc_queue(struct nvme_queue *q, bool adminq)
 {
+    size_t cmdq_size;
+    if (adminq || nvme_type >= NVME_T8103)
+        cmdq_size = nvme_queue_size * sizeof(*q->cmds);
+    else
+        cmdq_size = nvme_queue_size * NVME_IOSQES_128;
+
     memset(q, 0, sizeof(*q));
 
-    q->tcbs = memalign(SZ_16K, NVME_QUEUE_SIZE * sizeof(*q->tcbs));
-    if (!q->tcbs)
+    q->cmds = memalign(SZ_16K, cmdq_size);
+    if (!q->cmds)
         return false;
 
-    q->cmds = memalign(SZ_16K, NVME_QUEUE_SIZE * sizeof(*q->cmds));
-    if (!q->cmds)
-        goto free_tcbs;
-
-    q->cqes = memalign(SZ_16K, NVME_QUEUE_SIZE * sizeof(*q->cqes));
+    q->cqes = memalign(SZ_16K, nvme_queue_size * sizeof(*q->cqes));
     if (!q->cqes)
         goto free_cmds;
 
-    memset(q->tcbs, 0, NVME_QUEUE_SIZE * sizeof(*q->tcbs));
-    memset(q->cmds, 0, NVME_QUEUE_SIZE * sizeof(*q->cmds));
-    memset(q->cqes, 0, NVME_QUEUE_SIZE * sizeof(*q->cqes));
+    if (nvme_type >= NVME_T8103) {
+        q->tcbs = memalign(SZ_16K, nvme_queue_size * sizeof(*q->tcbs));
+        if (!q->tcbs)
+            goto free_cqes;
+
+        memset(q->tcbs, 0, nvme_queue_size * sizeof(*q->tcbs));
+    }
+
+    memset(q->cmds, 0, cmdq_size);
+    memset(q->cqes, 0, nvme_queue_size * sizeof(*q->cqes));
     q->cq_head = 0;
     q->cq_phase = 1;
+    q->adminq = adminq;
     return true;
 
+free_cqes:
+    free(q->cqes);
 free_cmds:
     free(q->cmds);
-free_tcbs:
-    free(q->tcbs);
     return false;
 }
 
@@ -216,15 +235,51 @@ static bool nvme_ctrl_shutdown(void)
     return FIELD_GET(NVME_CSTS_SHST, read32(nvme_base + NVME_CSTS)) == NVME_CSTS_SHST_DONE;
 }
 
-static bool nvme_exec_command(struct nvme_queue *q, struct nvme_command *cmd, u64 *result)
+/*
+ * Submit command using non-standard 128-byte IOSQEs
+ * Returns: Expected tag in CQ
+ */
+static u8 nvme_submit_command_t8015(struct nvme_queue *q, struct nvme_command *cmd)
 {
-    bool found = false;
-    u64 timeout;
-    u8 tag = 0;
-    struct nvme_command *queue_cmd = &q->cmds[tag];
-    struct apple_nvmmu_tcb *tcb = &q->tcbs[tag];
+    u8 tag = q->sq_tail;
+    struct nvme_command *queue_cmd;
+
+    if (q->adminq)
+        queue_cmd = &q->cmds[tag];
+    else
+        queue_cmd = (void *)q->cmds + (tag * NVME_IOSQES_128);
 
     memcpy(queue_cmd, cmd, sizeof(*cmd));
+
+    queue_cmd->tag = ++(q->sq_tail);
+    if (q->sq_tail == nvme_queue_size)
+        q->sq_tail = 0;
+
+    /* make sure ANS2 can see the command before triggering it */
+    dma_wmb();
+
+    if (q->adminq)
+        write32(nvme_base + NVME_DB_ASQ, q->sq_tail);
+    else
+        write32(nvme_base + NVME_DB_IOSQ, q->sq_tail);
+
+    return (tag + 1);
+}
+
+/*
+ * Submit command using Linear SQ and IOMMU
+ * Returns: Expected tag in CQ
+ */
+static u8 nvme_submit_command_t8103(struct nvme_queue *q, struct nvme_command *cmd)
+{
+    u8 tag = 0;
+    struct nvme_command *queue_cmd;
+    struct apple_nvmmu_tcb *tcb;
+
+    queue_cmd = &q->cmds[tag];
+    memcpy(queue_cmd, cmd, sizeof(*cmd));
+
+    tcb = &q->tcbs[tag];
     queue_cmd->tag = tag;
 
     memset(tcb, 0, sizeof(*tcb));
@@ -240,14 +295,28 @@ static bool nvme_exec_command(struct nvme_queue *q, struct nvme_command *cmd, u6
     tcb->prp1 = queue_cmd->prp1;
     tcb->prp2 = queue_cmd->prp2;
 
-    /* make sure ANS2 can see the command and tcb before triggering it */
+    /* make sure ANS3 can see the command and tcb before triggering it */
     dma_wmb();
 
-    nvme_poll_syslog();
     if (q->adminq)
         write32(nvme_base + NVME_DB_LINEAR_ASQ, tag);
     else
         write32(nvme_base + NVME_DB_LINEAR_IOSQ, tag);
+
+    return tag;
+}
+
+static bool nvme_exec_command(struct nvme_queue *q, struct nvme_command *cmd, u64 *result)
+{
+    bool found = false;
+    u64 timeout;
+    u8 cq_tag;
+
+    if (nvme_type < NVME_T8103)
+        cq_tag = nvme_submit_command_t8015(q, cmd);
+    else
+        cq_tag = nvme_submit_command_t8103(q, cmd);
+
     nvme_poll_syslog();
 
     timeout = timeout_calculate(NVME_TIMEOUT);
@@ -261,21 +330,23 @@ static bool nvme_exec_command(struct nvme_queue *q, struct nvme_command *cmd, u6
         if ((cqe.status & 1) != q->cq_phase)
             continue;
 
-        if (cqe.tag == tag) {
+        if (cqe.tag == cq_tag) {
             found = true;
             if (result)
                 *result = cqe.result;
         } else {
-            printf("nvme: invalid tag in CQ: expected %d but got %d\n", tag, cqe.tag);
+            printf("nvme: invalid tag in CQ: expected %d but got %d\n", cq_tag, cqe.tag);
         }
 
-        write32(nvmmu_base + NVMMU_TCB_INVAL, cqe.tag);
-        if (read32(nvmmu_base + NVMMU_TCB_STAT))
-            printf("nvme: NVMMU invalidation for tag %d failed\n", cqe.tag);
+        if (nvme_type >= NVME_T8103) {
+            write32(nvmmu_base + NVMMU_TCB_INVAL, cqe.tag);
+            if (read32(nvmmu_base + NVMMU_TCB_STAT))
+                printf("nvme: NVMMU invalidation for tag %d failed\n", cqe.tag);
+        }
 
         /* increment head and switch phase once the end of the queue has been reached */
         q->cq_head += 1;
-        if (q->cq_head == NVME_QUEUE_SIZE) {
+        if (q->cq_head == nvme_queue_size) {
             q->cq_head = 0;
             q->cq_phase ^= 1;
         }
@@ -315,7 +386,10 @@ bool nvme_init(void)
         return NULL;
     }
 
-    if (adt_get_property(adt, node, "nvme-secure-bar"))
+    if (adt_is_compatible(adt, node, "iop-ans2,t8015"))
+        // A11 has NVMe with normal submission queues and 16 tags.
+        nvme_type = NVME_T8015;
+    else if (adt_get_property(adt, node, "nvme-secure-bar"))
         // M4+ generations have the nvme-secure-bar property and 10+ regs.
         // They use reg[3] for NVMMU registers and reg[9] for NVMe registers,
         // and require extra writes to set up the IO queues.
@@ -337,6 +411,11 @@ bool nvme_init(void)
         nvme_base = nvmmu_base;
     }
 
+    if (nvme_type >= NVME_T8103)
+        nvme_queue_size = 64;
+    else
+        nvme_queue_size = 16;
+
     u32 cg;
     if (ADT_GETPROP(adt, node, "clock-gates", &cg) < 0) {
         printf("nvme: clock-gates not set\n");
@@ -346,17 +425,14 @@ bool nvme_init(void)
     }
     printf("nvme: ANS is on die %d\n", nvme_die);
 
-    if (!alloc_queue(&adminq)) {
+    if (!alloc_queue(&adminq, true)) {
         printf("nvme: Error allocating admin queue\n");
         return NULL;
     }
-    if (!alloc_queue(&ioq)) {
+    if (!alloc_queue(&ioq, false)) {
         printf("nvme: Error allocating admin queue\n");
         goto out_adminq;
     }
-
-    ioq.adminq = false;
-    adminq.adminq = true;
 
     nvme_asc = asc_init("/arm-io/ans");
     if (!nvme_asc)
@@ -378,13 +454,15 @@ bool nvme_init(void)
         goto out_shutdown;
     }
 
-    /* setup controller and NVMMU for linear submission queue */
-    set32(nvme_base + NVME_LINEAR_SQ_CTRL, NVME_LINEAR_SQ_CTRL_EN);
-    write32(nvme_base + NVME_MAX_PEND_CMDS_CTRL,
-            ((NVME_QUEUE_SIZE - 1) << 16) | (NVME_QUEUE_SIZE - 1));
-    write32(nvmmu_base + NVMMU_NUM, NVME_QUEUE_SIZE - 1);
-    write64_lo_hi(nvmmu_base + NVMMU_ASQ_BASE, (u64)adminq.tcbs);
-    write64_lo_hi(nvmmu_base + NVMMU_IOSQ_BASE, (u64)ioq.tcbs);
+    if (nvme_type >= NVME_T8103) {
+        /* setup controller and NVMMU for linear submission queue */
+        set32(nvme_base + NVME_LINEAR_SQ_CTRL, NVME_LINEAR_SQ_CTRL_EN);
+        write32(nvme_base + NVME_MAX_PEND_CMDS_CTRL,
+                ((nvme_queue_size - 1) << 16) | (nvme_queue_size - 1));
+        write32(nvmmu_base + NVMMU_NUM, nvme_queue_size - 1);
+        write64_lo_hi(nvmmu_base + NVMMU_ASQ_BASE, (u64)adminq.tcbs);
+        write64_lo_hi(nvmmu_base + NVMMU_IOSQ_BASE, (u64)ioq.tcbs);
+    }
 
     /* setup admin queue */
     if (!nvme_ctrl_disable()) {
@@ -393,7 +471,7 @@ bool nvme_init(void)
     }
     write64_lo_hi(nvme_base + NVME_ASQ, (u64)adminq.cmds);
     write64_lo_hi(nvme_base + NVME_ACQ, (u64)adminq.cqes);
-    write32(nvme_base + NVME_AQA, ((NVME_QUEUE_SIZE - 1) << 16) | (NVME_QUEUE_SIZE - 1));
+    write32(nvme_base + NVME_AQA, ((nvme_queue_size - 1) << 16) | (nvme_queue_size - 1));
     if (!nvme_ctrl_enable()) {
         printf("nvme: timeout while waiting for CSTS.RDY to be set\n");
         goto out_disable_ctrl;
@@ -406,7 +484,7 @@ bool nvme_init(void)
     cmd.opcode = NVME_ADMIN_CMD_CREATE_CQ;
     cmd.prp1 = (u64)ioq.cqes;
     cmd.cdw10 = 1; // cq id
-    cmd.cdw10 |= (NVME_QUEUE_SIZE - 1) << 16;
+    cmd.cdw10 |= (nvme_queue_size - 1) << 16;
     cmd.cdw11 = NVME_QUEUE_CONTIGUOUS;
     if (!nvme_exec_command(&adminq, &cmd, NULL)) {
         printf("nvme: create cq command failed\n");
@@ -417,7 +495,7 @@ bool nvme_init(void)
     cmd.opcode = NVME_ADMIN_CMD_CREATE_SQ;
     cmd.prp1 = (u64)ioq.cmds;
     cmd.cdw10 = 1; // sq id
-    cmd.cdw10 |= (NVME_QUEUE_SIZE - 1) << 16;
+    cmd.cdw10 |= (nvme_queue_size - 1) << 16;
     cmd.cdw11 = NVME_QUEUE_CONTIGUOUS;
     cmd.cdw11 |= 1 << 16; // cq id for this sq
     if (!nvme_exec_command(&adminq, &cmd, NULL)) {
