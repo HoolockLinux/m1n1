@@ -49,12 +49,14 @@ QUIET :=
 endif
 endif
 
+ASM_ARCH := armv8.2-a
+
 BASE_CFLAGS := -O2 -Wall -g -Wundef -Werror=strict-prototypes -fno-common -fno-PIE \
 	-Werror=implicit-function-declaration -Werror=implicit-int \
 	-Wsign-compare -Wunused-parameter -Wno-multichar \
 	-ffreestanding -fpic -ffunction-sections -fdata-sections \
 	-nostdinc -isystem $(shell $(CC) -print-file-name=include) -isystem sysinc \
-	-fno-stack-protector -mstrict-align -march=armv8.2-a \
+	-fno-stack-protector -mstrict-align -Wa,-march=$(ASM_ARCH) -DASM_ARCH=\"$(ASM_ARCH)\" \
 	$(EXTRA_CFLAGS)
 
 CFLAGS := $(BASE_CFLAGS) -mgeneral-regs-only
