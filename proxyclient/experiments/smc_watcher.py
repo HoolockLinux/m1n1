@@ -9,7 +9,13 @@ from m1n1.setup import *
 from m1n1.shell import run_shell
 from m1n1.fw.smc import SMCClient, SMCError
 
+chip_id = u.adt["/chosen"].chip_id
+
 smc_addr = u.adt["arm-io/smc"].get_reg(0)[0]
+
+if chip_id in (0x8015, 0x8012):
+    p.pmgr_adt_clocks_enable("/arm-io/smc")
+
 smc = SMCClient(u, smc_addr)
 smc.start()
 smc.start_ep(0x20)
