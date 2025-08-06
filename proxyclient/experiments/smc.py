@@ -8,6 +8,10 @@ import struct
 from m1n1.setup import *
 from m1n1.fw.smc import SMCClient, SMCError
 
+chip_id = u.adt["/chosen"].chip_id
+if chip_id in (0x8015, 0x8012):
+    p.pmgr_adt_clocks_enable("/arm-io/smc")
+
 smc_addr = u.adt["arm-io/smc"].get_reg(0)[0]
 smc = SMCClient(u, smc_addr)
 smc.start()
@@ -34,6 +38,13 @@ print(f"Key count: {count}")
 for i in range(count):
     k = smcep.get_key_by_index(i)
     length, type, flags = smcep.get_key_info(k)
+
+    if chip_id == 0x8015: # ugly hacks because t8015 smc lies!
+        if k == "D1SQ":
+            type = "ui32"
+        elif k == "WAID":
+            type = "ui16"
+
     if flags & 0x80:
         try:
             val = smcep.read_type(k, length, type)
