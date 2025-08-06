@@ -31,6 +31,15 @@ class R_OUTBOX1(Register64):
     INPTR   = 43, 40
     EP      = 7, 0
 
+
+class T8015ASCRegs(RegMap):
+    INBOX_CTRL  = 0x8108, R_MBOX_CTRL
+    OUTBOX_CTRL = 0x810c, R_MBOX_CTRL
+    INBOX0      = 0x8800, Register64
+    INBOX1      = 0x8808, R_INBOX1
+    OUTBOX0     = 0x8830, Register64
+    OUTBOX1     = 0x8838, R_OUTBOX1
+
 class ASCRegs(RegMap):
     CPU_CONTROL = 0x0044, R_CPU_CONTROL
     CPU_STATUS  = 0x0048, R_CPU_STATUS
@@ -44,10 +53,46 @@ class ASCRegs(RegMap):
 
 class ASC:
     def __init__(self, u, asc_base):
+        self.chip_id = u.adt["/chosen"].chip_id
+
         self.u = u
         self.p = u.proxy
         self.iface = u.iface
-        self.asc = ASCRegs(u, asc_base)
+        if self.chip_id == 0x8012:
+            self.asc = T8015ASCRegs(u, asc_base)
+            if asc_base == 0x203000000: # ans2
+                self.start_reg = 0x204d20044
+                self.start_val = 0x10
+            elif asc_base == 0x20da00000: # sep
+                self.start_reg = 0 # will be treated as always on
+            elif asc_base == 0x212800000: # smc
+                self.start_reg = 0x212000100
+                self.start_val = 1
+            elif asc_base == 0x210800000: # aop
+                self.start_reg = 0x210000200
+                self.start_val = 1
+            else:
+                raise ValueError("Unsupported ASC address")
+        elif self.chip_id == 0x8015:
+            self.asc = T8015ASCRegs(u, asc_base)
+            if asc_base == 0x257000000: # ans2
+                self.start_reg = 0x259d20044
+                self.start_val = 0x10
+            elif asc_base == 0x243000000: # sep
+                self.start_reg = 0 # will be treated as always on
+            elif asc_base == 0x236800000: # smc
+                self.start_reg = 0x236000100
+                self.start_val = 1
+            elif asc_base == 0x234800000: # aop
+                self.start_reg = 0x234000200
+                self.start_val = 1
+            elif asc_base == 0x232300000: # pmp
+                self.start_reg = 0x232400000
+                self.start_val = 1
+            else:
+                raise ValueError("Unsupported ASC address")
+        else:
+            self.asc = ASCRegs(u, asc_base)
         self.verbose = 0
         self.epmap = {}
 
@@ -75,13 +120,28 @@ class ASC:
             pass
 
     def is_running(self):
-        return not self.asc.CPU_STATUS.reg.STOPPED
+        if self.chip_id not in (0x8012, 0x8015):
+            return not self.asc.CPU_STATUS.reg.STOPPED
+        elif not self.start_reg:
+            return True
+        else:
+            return not not (self.p.read32(self.start_reg) & self.start_val)
 
     def boot(self):
-        self.asc.CPU_CONTROL.set(RUN=1)
+        if self.chip_id not in (0x8012, 0x8015):
+            self.asc.CPU_CONTROL.set(RUN=1)
+        elif not self.start_reg:
+            return
+        else:
+            self.p.set32(self.start_reg, self.start_val)
 
     def shutdown(self):
-        self.asc.CPU_CONTROL.set(RUN=0)
+        if self.chip_id not in (0x8012, 0x8015):
+            self.asc.CPU_CONTROL.set(RUN=0)
+        elif not self.start_reg:
+            return
+        else:
+            self.p.clear32(self.start_reg, self.start_val)
 
     def add_ep(self, idx, ep):
         self.epmap[idx] = ep
