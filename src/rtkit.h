@@ -51,4 +51,6 @@ bool rtkit_unmap(rtkit_dev_t *rtk, u64 dva, size_t sz);
 bool rtkit_alloc_buffer(rtkit_dev_t *rtk, struct rtkit_buffer *bfr, size_t sz);
 bool rtkit_free_buffer(rtkit_dev_t *rtk, struct rtkit_buffer *bfr);
 
+u8 rtkit_protocol_version(rtkit_dev_t *rtk);
+
 #endif
