@@ -18,7 +18,7 @@ class PMU:
         self.bus_type = bus_type
         if bus_type == "spmi":
             self.spmi = SPMI(u, adt_path.rpartition('/')[0])
-            self.primary = u.adt[adt_path].is_primary == 1
+            self.primary = u.adt[adt_path].compatible[0] in ("pmu,d2422", "pmu,d2449") or u.adt[adt_path].is_primary == 1
         elif bus_type == "i2c":
             self.i2c = I2C(u, adt_path.rpartition('/')[0])
             self.primary = u.adt[adt_path].name == "pmu"
@@ -48,7 +48,7 @@ class PMU:
                 for pmu in child:
                     compat = getattr(pmu, "compatible")[0] if hasattr(pmu, "compatible") else "unset"
                     primary = (getattr(pmu, "is-primary") == 1) if hasattr(pmu, "is-primary")  else False
-                    if compat in ("pmu,spmi", "pmu,d2422", "pmu,d2449") and primary:
+                    if compat == "pmu,spmi" and primary or compat in ("pmu,d2422", "pmu,d2449"):
                         return (pmu._path.removeprefix('/device-tree'), "spmi")
             elif child.name.startswith("i2c"):
                 for dev in child:
