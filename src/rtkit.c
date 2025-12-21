@@ -68,11 +68,15 @@
 #define MGMT_MSG_START_EP_IDX  GENMASK(39, 32)
 #define MGMT_MSG_START_EP_FLAG BIT(1)
 
-#define RTKIT_MIN_VERSION 11
+#define RTKIT_MIN_VERSION 10
 #define RTKIT_MAX_VERSION 12
 
 #define RTKIT_AKF_MSG_EP  GENMASK(63, 56)
 #define RTKIT_AKF_MSG_MSG GENMASK(55, 0)
+
+#define RTKIT_APP_EP_START_V10_0 0x5
+#define RTKIT_APP_EP_START_V10_2 0x6
+#define RTKIT_APP_EP_START_V11   0x20
 
 #define IOVA_MASK GENMASK(35, 0)
 
@@ -103,6 +107,9 @@ struct rtkit_dev {
     iova_domain_t *dart_iovad;
     sart_dev_t *sart;
     bool sram;
+    u8 app_ep_start;
+    u8 major_ver;
+    u8 minor_ver;
 
     u64 dva_base;
 
@@ -318,6 +325,13 @@ rtkit_dev_t *rtkit_init(const char *name, const struct rtkit_iop_ops *iop_ops, v
     rtk->dart_iovad = dart_iovad;
     rtk->sart = sart;
     rtk->sram = sram;
+    /*
+     * treat only mgmt as system endpoint until more information
+     * can be obtained from mgmt's HELLO message
+     *
+     * (RTKIT_EP_MGMT = 0, so default app endpoint start is RTKIT_EP_CRASHLOG = 1)
+     */
+    rtk->app_ep_start = RTKIT_EP_CRASHLOG;
     rtk->iop_power = RTKIT_POWER_OFF;
     rtk->ap_power = RTKIT_POWER_OFF;
     rtk->dva_base = 0;
@@ -530,7 +544,7 @@ int rtkit_recv(rtkit_dev_t *rtk, struct rtkit_message *msg)
 
     while (rtk->iop_ops->recv(rtk, msg)) {
         /* if this is an app message we can just forward it to the caller */
-        if (msg->ep >= 0x20)
+        if (msg->ep >= rtk->app_ep_start)
             return 1;
 
         u32 msgtype = FIELD_GET(MGMT_TYPE, msg->msg);
@@ -680,10 +694,23 @@ bool rtkit_boot(rtkit_dev_t *rtk)
         return false;
     }
 
-    rtkit_printf("booting with version %d\n", want_ver);
+    rtk->major_ver = want_ver;
+    if (rtk->major_ver < 11)
+        rtk->minor_ver = min_ver;
+    else
+        rtk->minor_ver = 0;
+
+    rtkit_printf("booting with version %d.%d\n", rtk->major_ver, rtk->minor_ver);
+
+    if (want_ver == 10 && rtk->minor_ver < 2)
+        rtk->app_ep_start = RTKIT_APP_EP_START_V10_0;
+    else if (want_ver == 10)
+        rtk->app_ep_start = RTKIT_APP_EP_START_V10_2;
+    else
+        rtk->app_ep_start = RTKIT_APP_EP_START_V11;
 
     msg.msg = FIELD_PREP(MGMT_TYPE, MGMT_MSG_HELLO_ACK);
-    msg.msg |= FIELD_PREP(MGMT_MSG_HELLO_MINVER, want_ver);
+    msg.msg |= FIELD_PREP(MGMT_MSG_HELLO_MINVER, rtk->major_ver < 11 ? rtk->minor_ver : want_ver);
     msg.msg |= FIELD_PREP(MGMT_MSG_HELLO_MAXVER, want_ver);
     msg.ep = RTKIT_EP_MGMT;
     if (!rtk->iop_ops->send(rtk, &msg)) {
@@ -722,7 +749,7 @@ bool rtkit_boot(rtkit_dev_t *rtk)
             if (bitmap & (1U << i)) {
                 u8 ep_idx = 32 * base + i;
 
-                if (ep_idx >= 0x20)
+                if (ep_idx >= rtk->app_ep_start)
                     continue;
                 switch (ep_idx) {
                     case RTKIT_EP_CRASHLOG:
@@ -747,15 +774,17 @@ bool rtkit_boot(rtkit_dev_t *rtk)
             }
         }
 
-        if (msg.msg & MGMT_MSG_EPMAP_DONE)
+        if ((msg.msg & MGMT_MSG_EPMAP_DONE) || want_ver < 11)
             got_epmap = true;
 
         msg.msg = FIELD_PREP(MGMT_TYPE, MGMT_MSG_EPMAP_REPLY);
         msg.msg |= FIELD_PREP(MGMT_MSG_EPMAP_BASE, base);
-        if (got_epmap)
-            msg.msg |= MGMT_MSG_EPMAP_REPLY_DONE;
-        else
-            msg.msg |= MGMT_MSG_EPMAP_REPLY_MORE;
+        if (want_ver > 10) {
+            if (got_epmap)
+                msg.msg |= MGMT_MSG_EPMAP_REPLY_DONE;
+            else
+                msg.msg |= MGMT_MSG_EPMAP_REPLY_MORE;
+        }
 
         msg.ep = RTKIT_EP_MGMT;
 
@@ -816,6 +845,10 @@ static bool rtkit_switch_power_state(rtkit_dev_t *rtk, enum rtkit_power_state ta
     }
 
     while (rtk->ap_power != RTKIT_POWER_QUIESCED) {
+        /* RTKit version 10.0 does not include the AP power state in the acknowledgement */
+        if (rtk->major_ver == 10 && rtk->minor_ver < 2 && rtk->ap_power == RTKIT_POWER_OFF)
+            break;
+
         struct rtkit_message rtk_msg;
         int ret = rtkit_recv(rtk, &rtk_msg);
 
@@ -865,4 +898,12 @@ bool rtkit_sleep(rtkit_dev_t *rtk)
 
     rtk->iop_ops->cpu_stop(rtk);
     return 0;
+}
+
+void rtkit_protocol_version(rtkit_dev_t *rtk, u8 *major, u8 *minor)
+{
+    *major = rtk->major_ver;
+
+    if (minor)
+        *minor = rtk->minor_ver;
 }
