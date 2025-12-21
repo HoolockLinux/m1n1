@@ -30,7 +30,7 @@ SECTIONS {
         LONG(0x100000c); /* cputype */
         LONG(0x00); /* cpusubtype */
         LONG(0x02); /* filetype */
-        LONG(6); /* ncmds */
+        LONG(7); /* ncmds */
         LONG(_cmd_end - _cmd_start); /* sizeofcmds */
         LONG(4); /* flags */
         LONG(0); /* reserved */
@@ -59,6 +59,22 @@ SECTIONS {
         QUAD(SIZEOF(.header)); /* filesize */
         LONG(PROT_READ); /* maxprot */
         LONG(PROT_READ); /* initprot */
+        LONG(0); /* nsects */
+        LONG(0); /* flags */
+
+        /* Required by iBoot: __PRELINK_TEXT */
+        LONG(0x19); /* type = SEGMENT_64 */
+        LONG(0x48); /* cmdsize */
+        LONG(0x52505f5f); /* segname = "__PR" */
+        LONG(0x4e494c45); /* segname = "ELIN" */
+        LONG(0x45545f4b); /* segname = "K_TE" */
+        LONG(0x00005458); /* segname = "XT.." */
+        QUAD(ADDR(.init) + _va_off); /* vmaddr */
+        QUAD(0); /* vmsize */
+        QUAD(ADDR(.init) - _base); /* fileoff */
+        QUAD(0); /* filesize */
+        LONG(PROT_READ | PROT_EXECUTE); /* maxprot */
+        LONG(PROT_READ | PROT_EXECUTE); /* initprot */
         LONG(0); /* nsects */
         LONG(0); /* flags */
 
