@@ -67,8 +67,11 @@
 #define MGMT_MSG_START_EP_IDX  GENMASK(39, 32)
 #define MGMT_MSG_START_EP_FLAG BIT(1)
 
-#define RTKIT_MIN_VERSION 11
+#define RTKIT_MIN_VERSION 10
 #define RTKIT_MAX_VERSION 12
+
+#define RTKIT_APP_EP_START_V10 0x6
+#define RTKIT_APP_EP_START_V11 0x20
 
 #define IOVA_MASK GENMASK(35, 0)
 
@@ -88,6 +91,7 @@ struct rtkit_dev {
     iova_domain_t *dart_iovad;
     sart_dev_t *sart;
     bool sram;
+    u8 app_ep_start;
 
     u64 dva_base;
 
@@ -159,6 +163,11 @@ rtkit_dev_t *rtkit_init(const char *name, asc_dev_t *asc, dart_dev_t *dart,
     rtk->dart_iovad = dart_iovad;
     rtk->sart = sart;
     rtk->sram = sram;
+    /*
+     * treat only mgmt as system endpoint until more information
+     * can be obtained from mgmt's HELLO message
+     */
+    rtk->app_ep_start = RTKIT_EP_CRASHLOG;
     rtk->iop_power = RTKIT_POWER_OFF;
     rtk->ap_power = RTKIT_POWER_OFF;
     rtk->dva_base = 0;
@@ -387,7 +396,7 @@ int rtkit_recv(rtkit_dev_t *rtk, struct rtkit_message *msg)
         msg->ep = (u8)asc_msg.msg1;
 
         /* if this is an app message we can just forward it to the caller */
-        if (msg->ep >= 0x20)
+        if (msg->ep >= rtk->app_ep_start)
             return 1;
 
         u32 msgtype = FIELD_GET(MGMT_TYPE, msg->msg);
@@ -539,6 +548,11 @@ bool rtkit_boot(rtkit_dev_t *rtk)
 
     rtkit_printf("booting with version %d\n", want_ver);
 
+    if (want_ver < 11)
+        rtk->app_ep_start = RTKIT_APP_EP_START_V10;
+    else
+        rtk->app_ep_start = RTKIT_APP_EP_START_V11;
+
     msg.msg0 = FIELD_PREP(MGMT_TYPE, MGMT_MSG_HELLO_ACK);
     msg.msg0 |= FIELD_PREP(MGMT_MSG_HELLO_MINVER, want_ver);
     msg.msg0 |= FIELD_PREP(MGMT_MSG_HELLO_MAXVER, want_ver);
@@ -579,7 +593,7 @@ bool rtkit_boot(rtkit_dev_t *rtk)
             if (bitmap & (1U << i)) {
                 u8 ep_idx = 32 * base + i;
 
-                if (ep_idx >= 0x20)
+                if (ep_idx >= rtk->app_ep_start)
                     continue;
                 switch (ep_idx) {
                     case RTKIT_EP_CRASHLOG:
@@ -604,15 +618,17 @@ bool rtkit_boot(rtkit_dev_t *rtk)
             }
         }
 
-        if (msg.msg0 & MGMT_MSG_EPMAP_DONE)
+        if ((msg.msg0 & MGMT_MSG_EPMAP_DONE) || want_ver < 11)
             got_epmap = true;
 
         msg.msg0 = FIELD_PREP(MGMT_TYPE, MGMT_MSG_EPMAP_REPLY);
         msg.msg0 |= FIELD_PREP(MGMT_MSG_EPMAP_BASE, base);
-        if (got_epmap)
-            msg.msg0 |= MGMT_MSG_EPMAP_REPLY_DONE;
-        else
-            msg.msg0 |= MGMT_MSG_EPMAP_REPLY_MORE;
+        if (want_ver > 10) {
+            if (got_epmap)
+                msg.msg0 |= MGMT_MSG_EPMAP_REPLY_DONE;
+            else
+                msg.msg0 |= MGMT_MSG_EPMAP_REPLY_MORE;
+        }
 
         msg.msg1 = RTKIT_EP_MGMT;
 
@@ -722,4 +738,12 @@ bool rtkit_sleep(rtkit_dev_t *rtk)
 
     asc_cpu_stop(rtk->asc);
     return 0;
+}
+
+u8 rtkit_app_ep_to_ep(rtkit_dev_t *rtk, u8 app_ep)
+{
+    if (rtk->app_ep_start == RTKIT_EP_CRASHLOG)
+        return 0;
+
+    return rtk->app_ep_start + app_ep;
 }
