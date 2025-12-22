@@ -30,7 +30,7 @@
 
 #define SMC_NUM_IDS 16
 
-#define SMC_ENDPOINT 0x20
+#define SMC_APP_ENDPOINT 0
 
 struct smc_dev {
     asc_dev_t *asc;
@@ -38,6 +38,7 @@ struct smc_dev {
 
     void *shmem;
     u32 msgid;
+    u8 ep;
 
     bool outstanding[SMC_NUM_IDS];
     u64 ret[SMC_NUM_IDS];
@@ -72,7 +73,7 @@ static int smc_work(smc_dev_t *smc)
         return ret;
     }
 
-    if (msg.ep != SMC_ENDPOINT) {
+    if (msg.ep != smc->ep) {
         printf("SMC: received message for unexpected endpoint 0x%02x\n", msg.ep);
         return 0;
     }
@@ -86,7 +87,7 @@ static void smc_send(smc_dev_t *smc, u64 message)
 {
     struct rtkit_message msg;
 
-    msg.ep = SMC_ENDPOINT;
+    msg.ep = smc->ep;
     msg.msg = message;
 
     rtkit_send(smc->rtkit, &msg);
@@ -158,7 +159,13 @@ smc_dev_t *smc_init(void)
         goto out_rtkit;
     }
 
-    if (!rtkit_start_ep(smc->rtkit, SMC_ENDPOINT)) {
+    smc->ep = rtkit_app_ep_to_ep(smc->rtkit, SMC_APP_ENDPOINT);
+    if (!smc->ep) {
+        printf("SMC: failed to get SMC endpoint\n");
+        goto out_rtkit;
+    }
+
+    if (!rtkit_start_ep(smc->rtkit, smc->ep)) {
         printf("SMC: failed start SMC endpoint\n");
         goto out_rtkit;
     }
