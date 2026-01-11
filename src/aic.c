@@ -210,3 +210,15 @@ uint32_t aic_ack(void)
 {
     return read32(aic->base + aic->regs.event);
 }
+
+void aic_target_cpu(u32 irq, u32 cpu_mask)
+{
+    aic_write(aic->regs.tgt_cpu + 4 * irq, cpu_mask);
+}
+
+void aic_unmask_irq(u32 irq)
+{
+    int irq_off = 4 * (irq >> 5);
+    int irq_bit = 1 << (irq & 0x1f);
+    aic_write(aic->regs.mask_clr + irq_off, irq_bit);
+}

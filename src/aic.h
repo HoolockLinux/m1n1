@@ -41,5 +41,7 @@ void aic_init(void);
 void aic_set_sw(int irq, bool active);
 void aic_write(u32 reg, u32 val);
 uint32_t aic_ack(void);
+void aic_target_cpu(u32 irq, u32 cpu);
+void aic_unmask_irq(u32 irq);
 
 #endif
