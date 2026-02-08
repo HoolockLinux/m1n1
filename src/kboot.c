@@ -2165,6 +2165,41 @@ static int dt_set_sep(void)
     return 0;
 }
 
+static int dt_set_smc(void)
+{
+    const char *region;
+    int reboot_node;
+    char smc_reboot[32];
+    int ret;
+
+    const char *path = fdt_get_alias(dt, "smc");
+    if (path == NULL)
+        return 0;
+
+    snprintf(smc_reboot, 32, "%s/reboot", path);
+
+    if ((reboot_node = fdt_path_offset(dt, smc_reboot)) < 0)
+        return 0;
+
+    if (fdt_node_check_compatible(dt, reboot_node, "apple,t8015-smc-reboot"))
+        return 0;
+
+    if (!(region = adt_getprop(adt, 0, "region-info", NULL))) {
+        printf("ADT: could not get region-info\n");
+        return 0;
+    }
+
+    if (strcmp(region, "CH/A")) // PRC
+        return 0;
+
+    ret = fdt_setprop_empty(dt, reboot_node, "prc-poweroff");
+
+    if (ret)
+        bail("FDT: could not set %s.prc-poweroff\n", smc_reboot);
+
+    return 0;
+}
+
 static int dt_set_sio_fwdata(const char *adt_path, const char *fdt_alias)
 {
     int node = fdt_path_offset(dt, fdt_alias);
@@ -2854,6 +2889,8 @@ int kboot_prepare_dt(void *fdt)
     if (dt_set_sep())
         return -1;
     if (dt_set_pmp())
+        return -1;
+    if (dt_set_smc())
         return -1;
     if (dt_set_nvram())
         return -1;
