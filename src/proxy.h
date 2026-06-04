@@ -162,6 +162,8 @@ typedef enum {
     P_NVME_SHUTDOWN,
     P_NVME_READ,
     P_NVME_FLUSH,
+    P_NVME_IDENTIFY,
+    P_NVME_TEST,
 
     P_MCC_GET_CARVEOUTS = 0x1000,
 

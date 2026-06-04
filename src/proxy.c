@@ -581,6 +581,12 @@ int proxy_process(ProxyRequest *request, ProxyReply *reply)
         case P_NVME_FLUSH:
             reply->retval = nvme_flush(request->args[0]);
             break;
+        case P_NVME_IDENTIFY:
+            reply->retval = nvme_identify();
+            break;
+        case P_NVME_TEST:
+            reply->retval = nvme_test(request->args[0]);
+            break;
 
         case P_MCC_GET_CARVEOUTS:
             reply->retval = (u64)mcc_carveouts;

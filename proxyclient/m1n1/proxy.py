@@ -641,6 +641,8 @@ class M1N1Proxy(Reloadable):
     P_NVME_SHUTDOWN = 0xf01
     P_NVME_READ = 0xf02
     P_NVME_FLUSH = 0xf03
+    P_NVME_IDENTIFY = 0xf04
+    P_NVME_TEST = 0xf05
 
     P_MCC_GET_CARVEOUTS = 0x1000
 
@@ -1137,6 +1139,10 @@ class M1N1Proxy(Reloadable):
         return self.request(self.P_NVME_READ, nsid, lba, bfr)
     def nvme_flush(self, nsid):
         return self.request(self.P_NVME_FLUSH, nsid)
+    def nvme_identify(self):
+        return self.request(self.P_NVME_IDENTIFY)
+    def nvme_test(self, collision):
+        return self.request(self.P_NVME_TEST, collision)
 
     def mcc_get_carveouts(self):
         return self.request(self.P_MCC_GET_CARVEOUTS)

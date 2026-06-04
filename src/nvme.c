@@ -63,7 +63,10 @@
 #define NVME_ADMIN_CMD_CREATE_SQ 0x01
 #define NVME_ADMIN_CMD_DELETE_CQ 0x04
 #define NVME_ADMIN_CMD_CREATE_CQ 0x05
+#define NVME_ADMIN_CMD_IDENTIFY  0x06
 #define NVME_QUEUE_CONTIGUOUS    BIT(0)
+
+#define NVME_IDENTIFY_CNS_CTRL 0x1
 
 #define NVME_CMD_FLUSH 0x00
 #define NVME_CMD_WRITE 0x01
@@ -95,6 +98,15 @@ struct nvme_completion {
     u32 rsvd; // normal NVMe has the sq_head and sq_id here
     u16 tag;
     u16 status;
+};
+
+struct nvme_id_ctrl {
+    u16 vid;
+    u16 ssvid;
+    char sn[20];
+    char mn[40];
+    char fr[8];
+    char blah[4024];
 };
 
 struct apple_nvmmu_tcb {
@@ -298,6 +310,49 @@ static void nvme_nvmmu_inval(u8 tag)
     write32(nvme_base + NVMMU_TCB_INVAL, tag);
     if (read32(nvme_base + NVMMU_TCB_STAT))
         printf("nvme: NVMMU invalidation for tag %d failed\n", tag);
+}
+
+static bool nvme_poll_cq(struct nvme_queue *q, u8 cq_tag, u64 *result)
+{
+    bool found = false;
+
+    u64 timeout = timeout_calculate(NVME_TIMEOUT);
+    struct nvme_completion cqe;
+    while (!timeout_expired(timeout)) {
+        nvme_poll_syslog();
+
+        /* we need a DMA read barrier here since the CQ will be updated using DMA */
+        dma_rmb();
+        memcpy(&cqe, &q->cqes[q->cq_head], sizeof(cqe));
+        if ((cqe.status & 1) != q->cq_phase)
+            continue;
+
+        if (cqe.tag == cq_tag) {
+            found = true;
+            if (result)
+                *result = cqe.result;
+        } else {
+            printf("nvme: invalid tag in CQ: expected %d but got %d\n", cq_tag, cqe.tag);
+        }
+
+        if (nvme_type == NVME_TYPE_T8103)
+            nvme_nvmmu_inval(cqe.tag);
+
+        /* increment head and switch phase once the end of the queue has been reached */
+        q->cq_head += 1;
+        if (q->cq_head == nvme_queue_size) {
+            q->cq_head = 0;
+            q->cq_phase ^= 1;
+        }
+
+        if (q->adminq)
+            write32(nvme_base + NVME_DB_ACQ, q->cq_head);
+        else
+            write32(nvme_base + NVME_DB_IOCQ, q->cq_head);
+        break;
+    }
+
+    return found;
 }
 
 static bool nvme_exec_command(struct nvme_queue *q, struct nvme_command *cmd, u64 *result)
@@ -629,4 +684,141 @@ bool nvme_read(u32 nsid, u64 lba, void *buffer)
     cmd.cdw11 = lba >> 32;
 
     return nvme_exec_command(&ioq, &cmd, NULL);
+}
+
+bool nvme_identify(void)
+{
+    struct nvme_command cmd;
+    struct nvme_id_ctrl *id;
+
+    if (!nvme_initialized)
+        return false;
+
+    id = memalign(SZ_4K, SZ_4K);
+
+    if (!id)
+        return false;
+
+    memset(&cmd, 0, sizeof(cmd));
+    cmd.prp1 = (u64)id;
+    cmd.opcode = NVME_ADMIN_CMD_IDENTIFY;
+    cmd.cdw10 = NVME_IDENTIFY_CNS_CTRL;
+
+    bool ok = nvme_exec_command(&adminq, &cmd, NULL);
+    if (!ok) {
+        printf("nvme: identify controller failure\n");
+        goto out_id_free;
+    }
+
+    id->sn[19] = '\0';
+    id->mn[39] = '\0';
+    id->fr[7] = '\0';
+
+    printf("VID:                0x%hx\n", id->vid);
+    printf("SSVID:              0x%hx\n", id->ssvid);
+    printf("Serial Number:      %s\n", id->sn);
+    printf("Model:              %s\n", id->mn);
+    printf("Firmware Revision:  %s\n", id->fr);
+
+out_id_free:
+    free(id);
+
+    return true;
+}
+
+bool nvme_test(bool collision)
+{
+    struct nvme_command acmd, icmd;
+    struct nvme_completion acqe, icqe;
+    u8 acq_tag, icq_tag;
+    bool retval = false;
+
+    if (!nvme_initialized)
+        return false;
+
+    if (nvme_type != NVME_TYPE_T8015)
+        return false;
+
+    void *ap = memalign(SZ_4K, SZ_4K);
+
+    if (!ap)
+        return false;
+
+    void *ip = memalign(SZ_4K, SZ_4K);
+    if (!ip) {
+        goto out_free_ap;
+    }
+
+    while (1) {
+        if (collision && (adminq.sq_tail == ioq.sq_tail))
+            break;
+        else if (!collision && (adminq.sq_tail != ioq.sq_tail))
+            break;
+
+        memset(&acmd, 0, sizeof(acmd));
+        acmd.prp1 = (u64)ap;
+        acmd.opcode = NVME_ADMIN_CMD_IDENTIFY;
+        acmd.cdw10 = NVME_IDENTIFY_CNS_CTRL;
+
+        bool ok = nvme_exec_command(&adminq, &acmd, NULL);
+
+        if (!ok)
+            goto out_free_ip;
+    }
+
+    memset(&acmd, 0, sizeof(acmd));
+    memset(&icmd, 0, sizeof(icmd));
+
+    // identify
+    acmd.prp1 = (u64)ap;
+    acmd.opcode = NVME_ADMIN_CMD_IDENTIFY;
+    acmd.cdw10 = NVME_IDENTIFY_CNS_CTRL;
+
+    // read illb
+    icmd.opcode = NVME_CMD_READ;
+    icmd.nsid = 1;
+    icmd.prp1 = (u64)ip;
+    icmd.cdw10 = 0;
+    icmd.cdw11 = 0;
+
+    acq_tag = nvme_submit_command_t8015(&adminq, &acmd);
+    icq_tag = nvme_submit_command_t8015(&ioq, &icmd);
+
+    // nvme maybe crashed here
+    // start polling cq
+
+    bool acmd_compl = nvme_poll_cq(&adminq, acq_tag, NULL);
+    bool icmd_compl = nvme_poll_cq(&ioq, icq_tag, NULL);
+
+    if (!acmd_compl) {
+        printf("nvme: could not find admin command completion in CQ\n");
+        goto out_free_ip;
+    }
+
+    if (!icmd_compl) {
+        printf("nvme: could not find io command completion in CQ\n");
+        goto out_free_ip;
+    }
+
+    icqe.status >>= 1;
+    acqe.status >>= 1;
+
+    if (acqe.status) {
+        printf("nvme: admin command failed with status %d\n", acqe.status);
+        goto out_free_ip;
+    }
+
+    if (icqe.status) {
+        printf("nvme: io command failed with status %d\n", icqe.status);
+        goto out_free_ip;
+    }
+
+    retval = true;
+
+out_free_ip:
+    free(ip);
+out_free_ap:
+    free(ap);
+
+    return retval;
 }

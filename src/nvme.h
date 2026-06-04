@@ -10,6 +10,8 @@ void nvme_shutdown(void);
 
 bool nvme_flush(u32 nsid);
 bool nvme_read(u32 nsid, u64 lba, void *buffer);
+bool nvme_identify(void);
+bool nvme_test(bool collision);
 
 enum nvme_type {
     /* Non-standard 128-byte IOSQEs */
