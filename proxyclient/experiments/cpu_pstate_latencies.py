@@ -14,11 +14,18 @@ tfreq = u.mrs(CNTFRQ_EL0)
 
 TEST_CPUS = []
 CLUSTER_TYPES = []
+
+def get_cpuid(cpu):
+    if hasattr(cpu, "cpu_id"):
+        return cpu.cpu_id
+    else:
+        return cpu.reg
+
 for cpu in u.adt["/cpus"]:
-    if cpu.cpu_id == 0 or cpu.state == 'running':
+    if get_cpuid(cpu) == 0 or cpu.state == 'running':
         continue
     if not hasattr(cpu, "cluster_type"):
-        TEST_CPUS.append(cpu.cpu_id)
+        TEST_CPUS.append(get_cpuid(cpu))
         CLUSTER_TYPES.append("")
         break
     elif cpu.cluster_type not in CLUSTER_TYPES:
