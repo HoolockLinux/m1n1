@@ -133,6 +133,7 @@ typedef struct dwc2_dev {
     u32 ep0_read_buffer_len;
 
     const union usb_setup_packet *setup_pkt;
+    dart_dev_t *dart;
 
     dwc2_endpoint_t endpoints[MAX_ENDPOINTS];
 
@@ -1396,7 +1397,7 @@ void usb_dwc2_handle_interrupts(dwc2_dev_t *dev)
     }
 }
 
-dwc2_dev_t *usb_dwc2_init(u64 regs)
+dwc2_dev_t *usb_dwc2_init(u64 regs, dart_dev_t *dart)
 {
     /* version check */
     u32 snpsid = read32(regs + DWC2_GSNPSID);
@@ -1435,6 +1436,10 @@ dwc2_dev_t *usb_dwc2_init(u64 regs)
     for (int i = 0; i < MAX_ENDPOINTS; ++i) {
         u32 xferbuffer_offset = i * DMA_BUFFER_SIZE;
         dev->endpoints[i].xfer_buffer = dev->dma_page_p + xferbuffer_offset;
+
+        if (dart)
+            dart_map(dart, (u32)((u64)dev->endpoints[i].xfer_buffer & 0xffffffff),
+                     dev->endpoints[i].xfer_buffer, SZ_16K);
     }
 
     /* prepare CDC ACM interfaces */
@@ -1524,6 +1529,9 @@ void usb_dwc2_shutdown(dwc2_dev_t *dev)
 
     if (poll32(dev->regs + DWC2_GRSTCTL, DWC2_GRSTCTL_CSFTRST, 0, 10000))
         usb_error_printf("Failed to reset the controller\n");
+
+    if (dev->dart)
+        dart_shutdown(dev->dart);
 
     for (int i = 0; i < CDC_ACM_PIPE_MAX; i++) {
         ringbuffer_free(dev->pipe[i].device2host);

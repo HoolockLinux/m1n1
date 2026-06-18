@@ -344,15 +344,23 @@ int usb_complex_init(struct usb_complex_config *config)
                     USBX_REMAP_TO_DRAM_BITS_T8011);
             break;
         case USBCOMPLEX_T8015:
+        case USBCOMPLEX_T8020:
             write32(config->USBComplexBase + USBX_CTL_T8011, USBX_CTL_EN_T8011);
-            write32(config->USBComplexBase + USBX_EHCI0_REMAP_CTL_T8015,
-                    USBX_REMAP_TO_DRAM_BITS_T8011);
-            write32(config->USBComplexBase + USBX_OHCI0_REMAP_CTL_T8015,
-                    USBX_REMAP_TO_DRAM_BITS_T8011);
-            write32(config->USBComplexBase + USBX_EHCI1_REMAP_CTL_T8015,
-                    USBX_REMAP_TO_DRAM_BITS_T8011);
-            write32(config->USBComplexBase + USBX_USBDEV_REMAP_CTL_T8015,
-                    USBX_REMAP_TO_DRAM_BITS_T8011);
+            if (!config->dart) {
+                write32(config->USBComplexBase + USBX_EHCI0_REMAP_CTL_T8015,
+                        USBX_REMAP_TO_DRAM_BITS_T8011);
+                write32(config->USBComplexBase + USBX_OHCI0_REMAP_CTL_T8015,
+                        USBX_REMAP_TO_DRAM_BITS_T8011);
+                write32(config->USBComplexBase + USBX_EHCI1_REMAP_CTL_T8015,
+                        USBX_REMAP_TO_DRAM_BITS_T8011);
+                write32(config->USBComplexBase + USBX_USBDEV_REMAP_CTL_T8015,
+                        USBX_REMAP_TO_DRAM_BITS_T8011);
+            } else {
+                write32(config->USBComplexBase + USBX_EHCI0_REMAP_CTL_T8015, 0);
+                write32(config->USBComplexBase + USBX_OHCI0_REMAP_CTL_T8015, 0);
+                write32(config->USBComplexBase + USBX_EHCI1_REMAP_CTL_T8015, 0);
+                write32(config->USBComplexBase + USBX_USBDEV_REMAP_CTL_T8015, 0);
+            }
             break;
         default:
             printf("usb: Unsupported complex type!\n");
@@ -375,7 +383,7 @@ int usb_complex_init(struct usb_complex_config *config)
     dwc2_dev_t *opaque;
     struct iodev *usb_iodev;
 
-    opaque = usb_dwc2_init(config->DWC2Base);
+    opaque = usb_dwc2_init(config->DWC2Base, config->dart);
     if (!opaque)
         return -1;
 
@@ -395,6 +403,8 @@ int usb_complex_init(struct usb_complex_config *config)
 
     return 0;
 }
+
+#define DART_USB_COMPLEX "/arm-io/dart-usb"
 
 int usb_complex_init_adt(void)
 {
@@ -453,6 +463,8 @@ int usb_complex_init_adt(void)
         type = USBCOMPLEX_S5L8960X;
     } else if (adt_is_compatible(adt, usbComplex_offset, "usb-complex,t8015")) {
         type = USBCOMPLEX_T8015;
+    } else if (adt_is_compatible(adt, usbComplex_offset, "usb-complex,t8020")) {
+        type = USBCOMPLEX_T8020;
     }
     // This must be last because of the fallback compatible to usb-complex,t8011 on t8015
     else if (adt_is_compatible(adt, usbComplex_offset, "usb-complex,t8011")) {
@@ -480,6 +492,23 @@ int usb_complex_init_adt(void)
         .cfg1_device = cfg1,
         .type = type,
     };
+
+    // Use DART to remap
+    int dart_path[8];
+    int dart_offset;
+
+    if ((dart_offset = adt_path_offset_trace(adt, DART_USB_COMPLEX, dart_path)) > 0) {
+        config.dart = dart_init_adt(DART_USB_COMPLEX, 0, 0, false);
+        if (!config.dart) {
+            printf("usb: DART init failed!\n");
+            return -1;
+        }
+
+        if (pmgr_adt_power_enable_index("/arm-io/usb-complex", 2) < 0) {
+            printf("usb: could not enable /arm-io/usb-complex power domain 2\n");
+            return -1;
+        }
+    }
 
     return usb_complex_init(&config);
 }

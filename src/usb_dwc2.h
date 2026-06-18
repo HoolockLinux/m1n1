@@ -3,6 +3,7 @@
 #ifndef USB_DWC2_H
 #define USB_DWC2_H
 
+#include "dart.h"
 #include "types.h"
 #include "usb_types.h"
 
@@ -10,7 +11,7 @@
 
 typedef struct dwc2_dev dwc2_dev_t;
 
-dwc2_dev_t *usb_dwc2_init(u64 regs);
+dwc2_dev_t *usb_dwc2_init(u64 regs, dart_dev_t *dart);
 void usb_dwc2_shutdown(dwc2_dev_t *dev);
 
 void usb_dwc2_handle_events(dwc2_dev_t *dev);

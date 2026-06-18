@@ -2,6 +2,7 @@
 #ifndef USB_COMPLEX_H
 #define USB_COMPLEX_H
 
+#include "dart.h"
 #include "types.h"
 
 // a few bits in a few registers are the same as atc, but still very different from atc overall
@@ -95,6 +96,7 @@ enum usb_complex_type {
     USBCOMPLEX_S5L8960X,
     USBCOMPLEX_T8011,
     USBCOMPLEX_T8015,
+    USBCOMPLEX_T8020,
 };
 
 struct usb_complex_config {
@@ -104,6 +106,7 @@ struct usb_complex_config {
     u32 cfg0_device;
     u32 cfg1_device;
     enum usb_complex_type type;
+    dart_dev_t *dart;
 };
 
 #endif
