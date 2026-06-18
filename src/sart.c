@@ -169,7 +169,8 @@ sart_dev_t *sart_init(const char *adt_path)
     const u32 *sart_version = adt_getprop(adt, node, "sart-version", NULL);
     const u32 sart_version_zero = 0;
     if (!sart_version) {
-        if (adt_is_compatible(adt, node, "sart,t8015")) {
+        if (adt_is_compatible(adt, node, "sart,t8015") ||
+            adt_is_compatible(adt, node, "sart,t8020")) {
             sart_version = &sart_version_zero;
         } else {
             printf("sart: SART %s has no sart-version property\n", adt_path);
