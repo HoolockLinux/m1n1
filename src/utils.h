@@ -491,6 +491,7 @@ enum cpufeat_uncore_version {
 struct midr_part_features {
     enum cpufeat_sleep_mode sleep_mode;
     enum cpufeat_uncore_version uncore_version;
+    bool optional_deep_wfi_retention;
     bool disable_dc_mva;
     bool acc_cfg;
     bool apple_sysregs_unlocked;
