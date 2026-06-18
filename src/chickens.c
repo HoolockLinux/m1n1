@@ -16,6 +16,8 @@ void init_t8011_hurricane_zephyr(int rev);
 void init_t8015_monsoon(int rev);
 void init_t8015_mistral(int rev);
 void init_t8015_monsoon(int rev);
+void init_t8020_vortex(int rev);
+void init_t8020_tempset(int rev);
 void init_m1_icestorm(int rev);
 void init_t8103_firestorm(int rev);
 void init_t6000_firestorm(int rev);
@@ -62,6 +64,17 @@ const struct midr_part_features features_a11 = {
     .apple_sysregs_unlocked = true,
     .sleep_mode = SLEEP_GLOBAL,
     .uncore_version = UNCORE_V1,
+    .nex_powergating = true,
+    .fast_ipi = true,
+};
+
+const struct midr_part_features features_a12 = {
+    .optional_deep_wfi_retention = true,
+    .disable_dc_mva = true,
+    .acc_cfg = true,
+    .apple_sysregs_unlocked = true,
+    .sleep_mode = SLEEP_GLOBAL,
+    .uncore_version = UNCORE_V2,
     .nex_powergating = true,
     .fast_ipi = true,
 };
@@ -134,6 +147,8 @@ const struct midr_part_info midr_parts[] = {
      &features_a10},
     {MIDR_PART_T8015_MONSOON, "A11 Monsoon", init_t8015_monsoon, &features_a11},
     {MIDR_PART_T8015_MISTRAL, "A11 Mistral", init_t8015_mistral, &features_a11},
+    {MIDR_PART_T8020_VORTEX, "A12 Vortex", init_t8020_vortex, &features_a12},
+    {MIDR_PART_T8020_TEMPSET, "A12 Tempset", init_t8020_tempset, &features_a12},
     {MIDR_PART_T8103_FIRESTORM, "M1 Firestorm", init_t8103_firestorm, &features_m1},
     {MIDR_PART_T6000_FIRESTORM, "M1 Pro Firestorm", init_t6000_firestorm, &features_m1},
     {MIDR_PART_T6001_FIRESTORM, "M1 Max Firestorm", init_t6001_firestorm, &features_m1},

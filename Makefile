@@ -129,7 +129,9 @@ OBJECTS := \
 	chickens_monsoon_mistral.o \
 	chickens_icestorm.o \
 	chickens_sawtooth.o \
+	chickens_tempset.o \
 	chickens_twister.o \
+	chickens_vortex.o \
 	clk.o \
 	cpufreq.o \
 	dapf.o \
