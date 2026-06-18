@@ -382,7 +382,8 @@ bool nvme_init(void)
         return NULL;
     }
 
-    if (adt_is_compatible(adt, node, "iop-ans2,t8015")) {
+    if (adt_is_compatible(adt, node, "iop-ans2,t8015") ||
+        adt_is_compatible(adt, node, "iop,ascwrap-v2")) {
         nvme_type = NVME_TYPE_T8015;
         nvme_queue_size = NVME_QUEUE_SIZE_T8015;
     } else {
