@@ -20,7 +20,7 @@ struct sart_dev {
 
 /* SARTv0 registers */
 #define APPLE_SART0_CONFIG(idx)       (0x00 + 4 * (idx))
-#define APPLE_SART0_CONFIG_FLAGS      GENMASK(28, 24)
+#define APPLE_SART0_CONFIG_FLAGS      GENMASK(31, 24)
 #define APPLE_SART0_CONFIG_SIZE       GENMASK(18, 0)
 #define APPLE_SART0_CONFIG_SIZE_SHIFT 12
 #define APPLE_SART0_CONFIG_SIZE_MAX   GENMASK(18, 0)
@@ -28,7 +28,7 @@ struct sart_dev {
 #define APPLE_SART0_PADDR(idx)  (0x40 + 4 * (idx))
 #define APPLE_SART0_PADDR_SHIFT 12
 
-#define APPLE_SART0_FLAGS_ALLOW 0xf
+#define APPLE_SART0_FLAGS_ALLOW 0x6f
 
 /* SARTv2 registers */
 #define APPLE_SART2_CONFIG(idx)       (0x00 + 4 * (idx))
