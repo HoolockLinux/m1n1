@@ -17,8 +17,9 @@ class PMU:
         self.node = u.adt[adt_path]
         self.bus_type = bus_type
         if bus_type == "spmi":
+            compat = u.adt[adt_path].compatible
             self.spmi = SPMI(u, adt_path.rpartition('/')[0])
-            self.primary = u.adt[adt_path].compatible[0] in ("pmu,d2422", "pmu,d2449") or u.adt[adt_path].is_primary == 1
+            self.primary = compat in ("pmu,d2422", "pmu,d2449") or (len(compat) == 2 and compat[1] == "pmu,d2542") or u.adt[adt_path].is_primary == 1
         elif bus_type == "i2c":
             self.i2c = I2C(u, adt_path.rpartition('/')[0])
             self.primary = u.adt[adt_path].name == "pmu"
@@ -46,9 +47,9 @@ class PMU:
         for child in adt["/arm-io"]:
             if child.name.startswith("nub-spmi") or child.name.startswith("spmi"):
                 for pmu in child:
-                    compat = getattr(pmu, "compatible")[0] if hasattr(pmu, "compatible") else "unset"
+                    compat = getattr(pmu, "compatible") if hasattr(pmu, "compatible") else tuple("unset")
                     primary = (getattr(pmu, "is-primary") == 1) if hasattr(pmu, "is-primary")  else False
-                    if compat == "pmu,spmi" and primary or compat in ("pmu,d2422", "pmu,d2449"):
+                    if (len(compat) == 2 and compat[1] == "pmu,d2542") or (compat[0] == "pmu,spmi" and primary) or compat[0] in ("pmu,d2422", "pmu,d2449"):
                         return (pmu._path.removeprefix('/device-tree'), "spmi")
             elif child.name.startswith("i2c"):
                 for dev in child:
