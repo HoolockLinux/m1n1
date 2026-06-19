@@ -58,6 +58,7 @@ static u32 pstate_reg_to_pstate(u64 val)
         case T8011:
         case T8012:
         case T8015:
+        case T8020:
         case T8103:
         case T6000:
         case T6001:
@@ -96,6 +97,7 @@ static int set_pstate(const struct cluster_t *cluster, uint32_t pstate)
             case T8011:
             case T8012:
             case T8015:
+            case T8020:
             case T8103:
             case T6000:
             case T6001:
@@ -245,6 +247,7 @@ int cpufreq_init_cluster(const struct cluster_t *cluster, const struct feat_t *f
         case T8011:
         case T8012:
         case T8015:
+        case T8020:
             /*
              * On T8015 this will result in the register being written
              * two times (for two clusters). However, this is fine.
@@ -374,6 +377,12 @@ static const struct cluster_t t8015_clusters[] = {
     {},
 };
 
+static const struct cluster_t t8020_clusters[] = {
+    {"ECPU", 0x210e00000, false, 2, 6},
+    {"PCPU", 0x211e00000, true, 2, 7},
+    {},
+};
+
 static const struct cluster_t t8103_clusters[] = {
     {"ECPU", 0x210e00000, false, 1, 5},
     {"PCPU", 0x211e00000, true, 1, 7},
@@ -453,6 +462,8 @@ const struct cluster_t *cpufreq_get_clusters(void)
             return t8012_clusters;
         case T8015:
             return t8015_clusters;
+        case T8020:
+            return t8020_clusters;
         case T8103:
             return t8103_clusters;
         case T6000:
@@ -495,6 +506,14 @@ static const struct feat_t t8010_features[] = {
 
 static const struct feat_t t8015_features[] = {
     {"cpu-apsc", CLUSTER_PSTATE, CLUSTER_PSTATE_M1_APSC_DIS, 0, CLUSTER_PSTATE_APSC_BUSY, false},
+    {"cpu-fixed-freq-pll-relock", CLUSTER_PSTATE, 0, CLUSTER_PSTATE_FIXED_FREQ_PLL_RECLOCK, 0,
+     false},
+    {},
+};
+
+static const struct feat_t t8020_features[] = {
+    {"cpu-apsc", CLUSTER_PSTATE, CLUSTER_PSTATE_M1_APSC_DIS, 0, CLUSTER_PSTATE_APSC_BUSY, false},
+    {"ppt-thrtl", 0x48400, 0, BIT(63), 0, false},
     {"cpu-fixed-freq-pll-relock", CLUSTER_PSTATE, 0, CLUSTER_PSTATE_FIXED_FREQ_PLL_RECLOCK, 0,
      false},
     {},
@@ -571,6 +590,8 @@ const struct feat_t *cpufreq_get_features(void)
             return t8010_features;
         case T8015:
             return t8015_features;
+        case T8020:
+            return t8020_features;
         case T8103:
         case T6000:
         case T6001:
