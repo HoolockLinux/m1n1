@@ -864,6 +864,30 @@ static int dt_set_bluetooth(void)
     return 0;
 }
 
+static int dt_set_bluetooth_uart(void) {
+    int ret;
+    int anode = adt_path_offset(adt, "/arm-io/uart1/bluetooth");
+
+    if (anode < 0)
+        return 0;
+
+    printf("setting bluetooth UART calibration\n");
+
+    const char *path = fdt_get_alias(dt, "bluetooth0");
+    if (path == NULL)
+        return 0;
+
+    int node = fdt_path_offset(dt, path);
+    if (node < 0)
+        return 0;
+
+    ret = dt_set_bluetooth_cal(anode, node, "bluetooth-taurus-calibration", "brcm,taurus-cal-blob");
+    if (ret)
+        return ret;
+
+    return 0;
+}
+
 static int dt_set_multitouch(void)
 {
     const char *path = fdt_get_alias(dt, "touchbar0");
@@ -2873,6 +2897,8 @@ int kboot_prepare_dt(void *fdt)
     if (dt_set_wifi())
         return -1;
     if (dt_set_bluetooth())
+        return -1;
+    if (dt_set_bluetooth_uart())
         return -1;
     if (dt_set_uboot())
         return -1;
