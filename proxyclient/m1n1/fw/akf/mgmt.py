@@ -4,8 +4,12 @@ import time
 from .base import *
 from ...utils import *
 
+RTKIT_MIN_VER = 10
+RTKIT_MAX_VER = 12
+
 ## Management endpoint
 class ManagementMessage(Register64):
+    EP      = 63, 60, Constant(0)
     TYPE    = 59, 52
 
 class Mgmt_Hello(ManagementMessage):
@@ -26,7 +30,7 @@ class Mgmt_Pong(ManagementMessage):
 
 class Mgmt_StartEP(ManagementMessage):
     TYPE    = 59, 52, Constant(5)
-    EP      = 39, 32
+    SEP     = 39, 32
     FLAG    = 1, 0
 
 class Mgmt_SetIOPPower(ManagementMessage):
@@ -53,7 +57,7 @@ class Mgmt_SetAPPower(ManagementMessage):
     TYPE    = 59, 52, Constant(0xb)
     STATE   = 15, 0
 
-class ASCManagementEndpoint(ASCBaseEndpoint):
+class AKFManagementEndpoint(AKFBaseEndpoint):
     BASE_MESSAGE = ManagementMessage
     SHORT = "mgmt"
 
@@ -67,8 +71,13 @@ class ASCManagementEndpoint(ASCBaseEndpoint):
     @msg_handler(1, Mgmt_Hello)
     def Hello(self, msg):
         self.log(f"Supported versions {msg.MIN_VER} .. {msg.MAX_VER}")
-        # FIXME: we pick the highest version, we should negotiate
-        self.send(Mgmt_HelloAck(MIN_VER=msg.MAX_VER, MAX_VER=msg.MAX_VER))
+        if msg.MIN_VER > RTKIT_MAX_VER:
+            raise Exception("IOP minimum version too new")
+        if msg.MAX_VER < RTKIT_MIN_VER:
+            raise Exception("IOP maximum version too old")
+        self.akf.version = min(RTKIT_MAX_VER, msg.MAX_VER)
+        self.log(f"Booting with version {self.akf.version}")
+        self.send(Mgmt_HelloAck(MIN_VER=self.akf.version, MAX_VER=self.akf.version))
         return True
 
     @msg_handler(8, Mgmt_EPMap)
@@ -76,17 +85,21 @@ class ASCManagementEndpoint(ASCBaseEndpoint):
         for i in range(32):
             if msg.BITMAP & (1 << i):
                 epno = 32 * msg.BASE + i
-                self.asc.eps.append(epno)
+                self.akf.eps.append(epno)
                 if self.verbose > 0:
                     self.log(f"Adding endpoint {epno:#x}")
 
-        self.send(Mgmt_EPMap_Ack(BASE=msg.BASE, LAST=msg.LAST, MORE=0 if msg.LAST else 1))
+        if self.akf.version > 10:
+            self.send(Mgmt_EPMap_Ack(BASE=msg.BASE, LAST=msg.LAST, MORE=0 if msg.LAST else 1))
+        else:
+            self.send(Mgmt_EPMap_Ack())
 
-        if msg.LAST:
-            for ep in self.asc.eps:
+        if msg.LAST or self.akf.version < 11:
+            for ep in self.akf.eps:
                 if ep == 0: continue
-                if ep < 0x10:
-                    self.asc.start_ep(ep)
+                if ep < 0x30: # app endpoint need start ? !
+                    self.akf.start_ep(ep)
+            self.boot_done()
 
         return True
 
@@ -116,19 +129,24 @@ class ASCManagementEndpoint(ASCBaseEndpoint):
         if timeout is not None:
             timeout += time.time()
         while self.iop_power_state != 0x20 or self.ap_power_state != 0x20:
-            self.asc.work()
+            self.akf.work()
             if timeout and time.time() > timeout:
-                raise ASCTimeout("Boot timed out")
+                raise AKFTimeout("Boot timed out")
         self.log("Startup complete")
 
     def start_ep(self, epno):
-        self.send(Mgmt_StartEP(EP=epno, FLAG=2))
+        self.send(Mgmt_StartEP(SEP=epno, FLAG=2))
 
     def stop_ep(self, epno):
-        self.send(Mgmt_StartEP(EP=epno, FLAG=1))
+        self.send(Mgmt_StartEP(SEP=epno, FLAG=1))
 
     def boot_done(self):
         self.send(Mgmt_SetAPPower(STATE=0x20))
+        if self.akf.version < 11:
+            # HACK: A7 needs this ?
+            # it does ACK eventually with this set but not doing this won't work
+            # For ANS1 it probably wants the command buffer base to be set
+            self.ap_power_state = 0x20
 
     def ping(self):
         self.send(Mgmt_Ping())
@@ -137,7 +155,7 @@ class ASCManagementEndpoint(ASCBaseEndpoint):
         self.log("Stopping via message")
         self.send(Mgmt_SetAPPower(STATE=0x10))
         while self.ap_power_state == 0x20:
-            self.asc.work()
+            self.akf.work()
         self.send(Mgmt_SetIOPPower(STATE=state))
         while self.iop_power_state != state:
-            self.asc.work()
+            self.akf.work()
