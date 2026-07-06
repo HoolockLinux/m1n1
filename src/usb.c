@@ -382,7 +382,7 @@ int usb_complex_init(struct usb_complex_config *config)
     usb_iodev = memalign(SPINLOCK_ALIGN, sizeof(*usb_iodev));
     if (!usb_iodev)
         return -1;
-    set32(config->USB2Phy_Base + USBX_OTG_SIG, USBX_OTG_SIG_VBUSDET_FORCE_EN);
+
     usb_iodev->ops = &iodev_usb_dwc2_ops;
     usb_iodev->opaque = opaque;
     usb_iodev->usage = USAGE_CONSOLE | USAGE_UARTPROXY;
@@ -392,6 +392,7 @@ int usb_complex_init(struct usb_complex_config *config)
     printf("USB0: initialized at %p\n", opaque);
 
     usb_is_initialized = true;
+    set32(config->USB2Phy_Base + USBX_OTG_SIG, USBX_OTG_SIG_VBUSDET_FORCE_EN);
 
     return 0;
 }
