@@ -538,7 +538,8 @@
 #define CYC_OVRD_DSBL_SNOOP_TIME_MASK     GENMASK(31, 30)
 #define CYC_OVRD_DSBL_SNOOP_TIME_VALUE(x) (ULONG(x) << 30)
 
-#define SYS_IMP_APL_ACC_OVRD sys_reg(3, 5, 15, 6, 0)
+#define SYS_IMP_APL_ACC_OVRD      sys_reg(3, 5, 15, 6, 0)
+#define SYS_IMP_APL_ACC_EBLK_OVRD sys_reg(3, 5, 15, 6, 1)
 
 #define ACC_OVRD_PRE_RESET_CLK_CNTS                     (ULONG(x))
 #define ACC_OVRD_PRE_RESET_CLK_CNTS_MASK                GENMASK(3, 0)
