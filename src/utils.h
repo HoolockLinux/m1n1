@@ -487,6 +487,7 @@ extern u32 board_id, chip_id;
 enum cpufeat_sleep_mode {
     SLEEP_NONE,
     SLEEP_LEGACY,
+    SLEEP_CLUSTER,
     SLEEP_GLOBAL,
 };
 
