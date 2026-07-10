@@ -23,4 +23,6 @@ bool akf_send(akf_dev_t *akf, u64 msg);
 bool akf_recv(akf_dev_t *akf, u64 *msg);
 bool akf_recv_timeout(akf_dev_t *akf, u64 *msg, u32 delay_usec);
 
+bool akf_map_preloaded_fw(akf_dev_t *akf);
+
 #endif

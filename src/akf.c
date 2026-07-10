@@ -2,6 +2,7 @@
 
 #include "adt.h"
 #include "akf.h"
+#include "akf_fw.h"
 #include "malloc.h"
 #include "string.h"
 #include "utils.h"
@@ -12,7 +13,7 @@
 #define AKF_REMAP_IOVA_HI 0x14
 #define AKF_REMAP_SIZE_LO 0x18
 #define AKF_REMAP_SIZE_HI 0x1c
-#define AKF_REMAP_ENABLE  0x28
+#define AKF_ENDIANNESS    0x20
 
 #define AKF_CPU_CONTROL       0x28
 #define AKF_CPU_CONTROL_START BIT(4)
@@ -80,6 +81,37 @@ akf_dev_t *akf_init(const char *path)
     set32(akf->base + AKF_MBOX_I2A_CONTROL, AKF_MBOX_CONTROL_ENABLE);
 
     return akf;
+}
+
+bool akf_map_preloaded_fw(akf_dev_t *akf)
+{
+    int fw_node = adt_first_child_offset(adt, akf->iop_node);
+    if (!fw_node) {
+        printf("akf: IOP Firmware node not found\n");
+        return false;
+    }
+
+    /*
+     * Always check the new one first, because in ADTs of certain versions
+     * it will be segment-ranges, but the unfilled region-base and region-size
+     * still exists
+     */
+    u64 phys, iova, size;
+
+    if (!akf_fw_get_region(fw_node, &phys, &iova, &size))
+        return false;
+
+    write32(akf->cpu_base + AKF_REMAP_IOVA_LO, iova & 0xffffffff);
+    write32(akf->cpu_base + AKF_REMAP_IOVA_HI, iova >> 32);
+    write32(akf->cpu_base + AKF_REMAP_PHYS_LO, phys & 0xffffffff);
+    write32(akf->cpu_base + AKF_REMAP_PHYS_HI, phys >> 32);
+    write32(akf->cpu_base + AKF_REMAP_SIZE_LO, size & 0xffffffff);
+    write32(akf->cpu_base + AKF_REMAP_SIZE_HI, size >> 32);
+    /* 0 = BE, 1 = LE */
+    write32(akf->cpu_base + AKF_ENDIANNESS, 1);
+    write32(akf->cpu_base + AKF_UNK_80C, 0);
+
+    return true;
 }
 
 void akf_cpu_start(akf_dev_t *akf)
