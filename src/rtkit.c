@@ -71,6 +71,9 @@
 #define RTKIT_MIN_VERSION 10
 #define RTKIT_MAX_VERSION 12
 
+#define RTKIT_APP_EP_START_V10 0x5
+#define RTKIT_APP_EP_START_V11 0x20
+
 #define RTKIT_AKF_MSG_EP  GENMASK(63, 56)
 #define RTKIT_AKF_MSG_MSG GENMASK(55, 0)
 
@@ -108,6 +111,9 @@ struct rtkit_dev {
     bool sram;
     u8 app_ep_start;
     u8 protocol_ver;
+
+    bool (*init_app_handler)(rtkit_dev_t *rtk, struct rtkit_message *msg);
+    bool (*epmap_cb)(rtkit_dev_t *rtk, u32 base, u32 bitmap);
 
     u64 dva_base;
 
@@ -290,7 +296,9 @@ static const struct rtkit_iop_ops __rtkit_akf_iop_ops = {
 const struct rtkit_iop_ops *const rtkit_akf_iop_ops = &__rtkit_akf_iop_ops;
 
 rtkit_dev_t *rtkit_init(const char *name, const struct rtkit_iop_ops *iop_ops, void *mbox,
-                        dart_dev_t *dart, iova_domain_t *dart_iovad, sart_dev_t *sart, bool sram)
+                        dart_dev_t *dart, iova_domain_t *dart_iovad, sart_dev_t *sart, bool sram,
+                        bool (*epmap_cb)(rtkit_dev_t *rtk, u32 base, u32 bitmap),
+                        bool (*init_app_handler)(rtkit_dev_t *rtk, struct rtkit_message *msg))
 {
     if (dart && sart) {
         printf("rtkit: Cannot use both SART and DART simultaneously\n");
@@ -323,6 +331,8 @@ rtkit_dev_t *rtkit_init(const char *name, const struct rtkit_iop_ops *iop_ops, v
     rtk->dart_iovad = dart_iovad;
     rtk->sart = sart;
     rtk->sram = sram;
+    rtk->init_app_handler = init_app_handler;
+    rtk->epmap_cb = epmap_cb;
     /*
      * treat only mgmt as system endpoint until more information
      * can be obtained from mgmt's HELLO message
@@ -716,6 +726,7 @@ bool rtkit_boot(rtkit_dev_t *rtk)
     bool has_syslog = false;
     bool has_oslog = false;
     bool got_epmap = false;
+
     while (!got_epmap) {
         if (!rtk->iop_ops->recv_timeout(rtk, &msg, USEC_PER_SEC)) {
             rtkit_printf("couldn't receive message while waiting for endpoint map\n");
@@ -743,6 +754,7 @@ bool rtkit_boot(rtkit_dev_t *rtk)
 
                 if (ep_idx >= rtk->app_ep_start)
                     continue;
+
                 switch (ep_idx) {
                     case RTKIT_EP_CRASHLOG:
                         has_crashlog = true;
@@ -784,6 +796,10 @@ bool rtkit_boot(rtkit_dev_t *rtk)
             rtkit_printf("couldn't reply to endpoint map\n");
             return false;
         }
+
+        if (rtk->epmap_cb)
+            if (!rtk->epmap_cb(rtk, base, bitmap))
+                return false;
     }
 
     /* start all required system endpoints */
@@ -800,12 +816,20 @@ bool rtkit_boot(rtkit_dev_t *rtk)
 
     while (rtk->iop_power != RTKIT_POWER_ON) {
         struct rtkit_message rtk_msg;
+        bool handled = false;
         int ret = rtkit_recv(rtk, &rtk_msg);
-        if (ret == 1)
-            rtkit_printf("unexpected message to non-system endpoint 0x%02x during boot: %lx\n",
-                         rtk_msg.ep, rtk_msg.msg);
-        else if (ret < 0)
+
+        if (ret < 0)
             return false;
+
+        if (ret == 1) {
+            if (rtk->init_app_handler)
+                handled = rtk->init_app_handler(rtk, &rtk_msg);
+
+            if (!handled)
+                rtkit_printf("unexpected message to non-system endpoint 0x%02x during boot: %lx\n",
+                             rtk_msg.ep, rtk_msg.msg);
+        }
     }
 
     /* this enables syslog */
@@ -839,10 +863,16 @@ static bool rtkit_switch_power_state(rtkit_dev_t *rtk, enum rtkit_power_state ta
     while (rtk->ap_power != RTKIT_POWER_QUIESCED) {
         struct rtkit_message rtk_msg;
         int ret = rtkit_recv(rtk, &rtk_msg);
+        bool handled = false;
 
         if (ret > 0) {
-            rtkit_printf("unexpected message to non-system endpoint 0x%02x during shutdown: %lx\n",
-                         rtk_msg.ep, rtk_msg.msg);
+            if (rtk->init_app_handler)
+                handled = rtk->init_app_handler(rtk, &rtk_msg);
+
+            if (!handled)
+                rtkit_printf(
+                    "unexpected message to non-system endpoint 0x%02x during shutdown: %lx\n",
+                    rtk_msg.ep, rtk_msg.msg);
             continue;
         } else if (ret < 0) {
             rtkit_printf("IOP died during shutdown\n");
@@ -859,10 +889,16 @@ static bool rtkit_switch_power_state(rtkit_dev_t *rtk, enum rtkit_power_state ta
     while (rtk->iop_power != target) {
         struct rtkit_message rtk_msg;
         int ret = rtkit_recv(rtk, &rtk_msg);
+        bool handled = false;
 
         if (ret > 0) {
-            rtkit_printf("unexpected message to non-system endpoint 0x%02x during shutdown: %lx\n",
-                         rtk_msg.ep, rtk_msg.msg);
+            if (rtk->init_app_handler)
+                handled = rtk->init_app_handler(rtk, &rtk_msg);
+
+            if (!handled)
+                rtkit_printf(
+                    "unexpected message to non-system endpoint 0x%02x during shutdown: %lx\n",
+                    rtk_msg.ep, rtk_msg.msg);
             continue;
         } else if (ret < 0) {
             rtkit_printf("IOP died during shutdown\n");

@@ -9,11 +9,11 @@
 #include "sart.h"
 #include "types.h"
 
-#define rtkit_init_asc(name, asc, dart, dart_iovad, sart, sram)                                    \
-    rtkit_init(name, rtkit_asc_iop_ops, asc, dart, dart_iovad, sart, sram)
+#define rtkit_init_asc(name, asc, dart, dart_iovad, sart, sram, epmap_cb, handler)                 \
+    rtkit_init(name, rtkit_asc_iop_ops, asc, dart, dart_iovad, sart, sram, epmap_cb, handler)
 
-#define rtkit_init_akf(name, akf, dart, dart_iovad, sart, sram)                                    \
-    rtkit_init(name, rtkit_akf_iop_ops, asc, dart, dart_iovad, sart, sram)
+#define rtkit_init_akf(name, akf, dart, dart_iovad, sart, sram, epmap_cb, handler)                 \
+    rtkit_init(name, rtkit_akf_iop_ops, akf, dart, dart_iovad, sart, sram, epmap_cb, handler)
 
 typedef struct rtkit_dev rtkit_dev_t;
 
@@ -32,7 +32,9 @@ extern const struct rtkit_iop_ops *const rtkit_asc_iop_ops;
 extern const struct rtkit_iop_ops *const rtkit_akf_iop_ops;
 
 rtkit_dev_t *rtkit_init(const char *name, const struct rtkit_iop_ops *iop_ops, void *mbox,
-                        dart_dev_t *dart, iova_domain_t *dart_iovad, sart_dev_t *sart, bool sram);
+                        dart_dev_t *dart, iova_domain_t *dart_iovad, sart_dev_t *sart, bool sram,
+                        bool (*epmap_cb)(rtkit_dev_t *rtk, u32 base, u32 bitmap),
+                        bool (*init_app_handler)(rtkit_dev_t *rtk, struct rtkit_message *msg));
 bool rtkit_quiesce(rtkit_dev_t *rtk);
 bool rtkit_sleep(rtkit_dev_t *rtk);
 void rtkit_free(rtkit_dev_t *rtk);
