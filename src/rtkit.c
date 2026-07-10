@@ -4,6 +4,7 @@
 
 #include "rtkit.h"
 #include "adt.h"
+#include "akf.h"
 #include "asc.h"
 #include "dart.h"
 #include "iova.h"
@@ -69,6 +70,9 @@
 
 #define RTKIT_MIN_VERSION 11
 #define RTKIT_MAX_VERSION 12
+
+#define RTKIT_AKF_MSG_EP  GENMASK(63, 56)
+#define RTKIT_AKF_MSG_MSG GENMASK(55, 0)
 
 #define IOVA_MASK GENMASK(35, 0)
 
@@ -212,6 +216,73 @@ static const struct rtkit_iop_ops __rtkit_asc_iop_ops = {
 };
 
 const struct rtkit_iop_ops *const rtkit_asc_iop_ops = &__rtkit_asc_iop_ops;
+
+static void rtkit_akf_cpu_start(struct rtkit_dev *rtk)
+{
+    akf_cpu_start((akf_dev_t *)rtk->mbox);
+}
+
+static void rtkit_akf_cpu_stop(struct rtkit_dev *rtk)
+{
+    akf_cpu_stop((akf_dev_t *)rtk->mbox);
+}
+
+static bool rtkit_akf_can_recv(struct rtkit_dev *rtk)
+{
+    return akf_can_recv((akf_dev_t *)rtk->mbox);
+}
+
+static bool rtkit_akf_send(struct rtkit_dev *rtk, const struct rtkit_message *rtk_msg)
+{
+    u64 akf_msg = 0;
+
+    akf_msg |= FIELD_PREP(RTKIT_AKF_MSG_EP, rtk_msg->ep);
+    akf_msg |= FIELD_PREP(RTKIT_AKF_MSG_MSG, rtk_msg->msg);
+
+    return akf_send((akf_dev_t *)rtk->mbox, akf_msg);
+}
+
+static bool rtkit_akf_recv(struct rtkit_dev *rtk, struct rtkit_message *rtk_msg)
+{
+    u64 akf_msg;
+    bool recv;
+
+    recv = akf_recv((akf_dev_t *)rtk->mbox, &akf_msg);
+    if (!recv)
+        return false;
+
+    rtk_msg->msg = FIELD_GET(RTKIT_AKF_MSG_MSG, akf_msg);
+    rtk_msg->ep = FIELD_GET(RTKIT_AKF_MSG_EP, akf_msg);
+
+    return true;
+}
+
+static bool rtkit_akf_recv_timeout(struct rtkit_dev *rtk, struct rtkit_message *rtk_msg,
+                                   u32 delay_usec)
+{
+    u64 akf_msg;
+    bool recv;
+
+    recv = akf_recv_timeout((akf_dev_t *)rtk->mbox, &akf_msg, delay_usec);
+    if (!recv)
+        return false;
+
+    rtk_msg->msg = FIELD_GET(RTKIT_AKF_MSG_MSG, akf_msg);
+    rtk_msg->ep = FIELD_GET(RTKIT_AKF_MSG_EP, akf_msg);
+
+    return true;
+}
+
+static const struct rtkit_iop_ops __rtkit_akf_iop_ops = {
+    .cpu_start = rtkit_akf_cpu_start,
+    .cpu_stop = rtkit_akf_cpu_stop,
+    .can_recv = rtkit_akf_can_recv,
+    .recv_timeout = rtkit_akf_recv_timeout,
+    .send = rtkit_akf_send,
+    .recv = rtkit_akf_recv,
+};
+
+const struct rtkit_iop_ops *const rtkit_akf_iop_ops = &__rtkit_akf_iop_ops;
 
 rtkit_dev_t *rtkit_init(const char *name, const struct rtkit_iop_ops *iop_ops, void *mbox,
                         dart_dev_t *dart, iova_domain_t *dart_iovad, sart_dev_t *sart, bool sram)

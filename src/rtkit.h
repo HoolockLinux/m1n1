@@ -12,6 +12,9 @@
 #define rtkit_init_asc(name, asc, dart, dart_iovad, sart, sram)                                    \
     rtkit_init(name, rtkit_asc_iop_ops, asc, dart, dart_iovad, sart, sram)
 
+#define rtkit_init_akf(name, akf, dart, dart_iovad, sart, sram)                                    \
+    rtkit_init(name, rtkit_akf_iop_ops, asc, dart, dart_iovad, sart, sram)
+
 typedef struct rtkit_dev rtkit_dev_t;
 
 struct rtkit_message {
@@ -26,6 +29,7 @@ struct rtkit_buffer {
 };
 
 extern const struct rtkit_iop_ops *const rtkit_asc_iop_ops;
+extern const struct rtkit_iop_ops *const rtkit_akf_iop_ops;
 
 rtkit_dev_t *rtkit_init(const char *name, const struct rtkit_iop_ops *iop_ops, void *mbox,
                         dart_dev_t *dart, iova_domain_t *dart_iovad, sart_dev_t *sart, bool sram);
