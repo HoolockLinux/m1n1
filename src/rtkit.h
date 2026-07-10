@@ -9,6 +9,9 @@
 #include "sart.h"
 #include "types.h"
 
+#define rtkit_init_asc(name, asc, dart, dart_iovad, sart, sram)                                    \
+    rtkit_init(name, rtkit_asc_iop_ops, asc, dart, dart_iovad, sart, sram)
+
 typedef struct rtkit_dev rtkit_dev_t;
 
 struct rtkit_message {
@@ -22,8 +25,10 @@ struct rtkit_buffer {
     size_t sz;
 };
 
-rtkit_dev_t *rtkit_init(const char *name, asc_dev_t *asc, dart_dev_t *dart,
-                        iova_domain_t *dart_iovad, sart_dev_t *sart, bool sram);
+extern const struct rtkit_iop_ops *const rtkit_asc_iop_ops;
+
+rtkit_dev_t *rtkit_init(const char *name, const struct rtkit_iop_ops *iop_ops, void *mbox,
+                        dart_dev_t *dart, iova_domain_t *dart_iovad, sart_dev_t *sart, bool sram);
 bool rtkit_quiesce(rtkit_dev_t *rtk);
 bool rtkit_sleep(rtkit_dev_t *rtk);
 void rtkit_free(rtkit_dev_t *rtk);

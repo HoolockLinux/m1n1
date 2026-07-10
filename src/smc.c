@@ -147,7 +147,7 @@ smc_dev_t *smc_init(void)
         goto out_free;
     }
 
-    smc->rtkit = rtkit_init("smc", smc->asc, NULL, NULL, NULL, true);
+    smc->rtkit = rtkit_init_asc("smc", smc->asc, NULL, NULL, NULL, true);
     if (!smc->rtkit) {
         printf("SMC: failed to initialize RTKit\n");
         goto out_asc;
