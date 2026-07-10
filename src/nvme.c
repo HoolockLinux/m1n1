@@ -442,7 +442,7 @@ bool nvme_init(void)
     if (!nvme_sart)
         goto out_asc;
 
-    nvme_rtkit = rtkit_init("nvme", nvme_asc, NULL, NULL, nvme_sart, false);
+    nvme_rtkit = rtkit_init_asc("nvme", nvme_asc, NULL, NULL, nvme_sart, false);
     if (!nvme_rtkit)
         goto out_sart;
 
@@ -562,7 +562,7 @@ void nvme_ensure_shutdown(void)
     if (!nvme_sart)
         goto fail;
 
-    nvme_rtkit = rtkit_init("nvme", nvme_asc, NULL, NULL, nvme_sart, false);
+    nvme_rtkit = rtkit_init_asc("nvme", nvme_asc, NULL, NULL, nvme_sart, false);
     if (!nvme_rtkit)
         goto fail;
 
