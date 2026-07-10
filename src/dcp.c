@@ -209,7 +209,8 @@ dcp_dev_t *dcp_init(const display_config_t *cfg)
         goto out_iovad;
     }
 
-    dcp->rtkit = rtkit_init_asc("dcp", dcp->asc, dcp->dart_dcp, dcp->iovad_dcp, NULL, false);
+    dcp->rtkit =
+        rtkit_init_asc("dcp", dcp->asc, dcp->dart_dcp, dcp->iovad_dcp, NULL, false, NULL, NULL);
     if (!dcp->rtkit) {
         printf("dcp: failed to initialize RTKit\n");
         goto out_iovad;
