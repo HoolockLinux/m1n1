@@ -603,6 +603,18 @@ int proxy_process(ProxyRequest *request, ProxyReply *reply)
         case P_ANS1_RESERVED:
             reply->status = S_BADCMD;
             break;
+        case P_MAIN_STORAGE_INIT:
+            reply->retval = main_storage_init();
+            break;
+        case P_MAIN_STORAGE_SHUTDOWN:
+            main_storage_shutdown();
+            break;
+        case P_MAIN_STORAGE_READ:
+            reply->retval = main_storage_read(request->args[0], (void *)request->args[1]);
+            break;
+        case P_MAIN_STORAGE_FLUSH:
+            reply->retval = main_storage_flush();
+            break;
 
         case P_MCC_GET_CARVEOUTS:
             reply->retval = (u64)mcc_carveouts;

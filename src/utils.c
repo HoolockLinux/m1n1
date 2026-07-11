@@ -3,16 +3,24 @@
 #include <assert.h>
 #include <stdarg.h>
 
-#include "utils.h"
+#include "adt.h"
+#include "ans1.h"
 #include "cpu_regs.h"
 #include "iodev.h"
+#include "nvme.h"
 #include "smp.h"
 #include "types.h"
 #include "utils.h"
 #include "vsprintf.h"
 #include "xnuboot.h"
 
+enum storage_type {
+    STORAGE_TYPE_ANS1 = 1,
+    STORAGE_TYPE_ANS23,
+};
+
 bool is_mac;
+static enum storage_type storage_type;
 
 static char ascii(char s)
 {
@@ -281,5 +289,66 @@ void cpu_sleep(bool deep)
     while (1) {
         sysop("isb");
         sysop("wfi");
+    }
+}
+
+bool main_storage_init(void)
+{
+    int ans_node = adt_path_offset(adt, "/arm-io/ans");
+
+    if (ans_node < 0) {
+        /* A9/A9X/A10/A10X */
+        printf("Storage: storage not supported!\n");
+        return false;
+    }
+
+    if (adt_is_compatible(adt, ans_node, "iop,s5l8960x")) {
+        storage_type = STORAGE_TYPE_ANS1;
+        return ans1_init();
+    } else {
+        storage_type = STORAGE_TYPE_ANS23;
+        return nvme_init();
+    }
+}
+
+bool main_storage_read(u64 lba, u64 *bfr)
+{
+    if (!storage_type)
+        return false;
+
+    switch (storage_type) {
+        case STORAGE_TYPE_ANS1:
+            return ans1_read_main_storage(lba, bfr);
+        case STORAGE_TYPE_ANS23:
+            return nvme_read(1, lba, bfr);
+    }
+}
+
+void main_storage_shutdown(void)
+{
+    if (!storage_type)
+        return;
+
+    switch (storage_type) {
+        case STORAGE_TYPE_ANS1:
+            ans1_shutdown();
+            break;
+        case STORAGE_TYPE_ANS23:
+            nvme_shutdown();
+            break;
+    }
+}
+
+bool main_storage_flush(void)
+{
+    if (!storage_type)
+        return false;
+
+    switch (storage_type) {
+        case STORAGE_TYPE_ANS1:
+            /* XXX support unknown on ANS1 */
+            return true;
+        case STORAGE_TYPE_ANS23:
+            return nvme_flush(1);
     }
 }

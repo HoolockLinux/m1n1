@@ -527,4 +527,8 @@ bool supports_gxf(void);
 bool supports_pan(void);
 u64 top_of_memory_alloc(size_t size);
 
+bool main_storage_init(void);
+bool main_storage_read(u64 lba, u64 *bfr);
+void main_storage_shutdown(void);
+bool main_storage_flush(void);
 #endif
