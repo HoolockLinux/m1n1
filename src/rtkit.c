@@ -219,8 +219,8 @@ bool rtkit_map(rtkit_dev_t *rtk, void *phys, size_t sz, u64 *dva)
         *dva = iova | rtk->dva_base;
         return true;
     } else {
-        rtkit_printf("TODO: implement no IOMMU buffers\n");
-        return false;
+        *dva = (u64)phys;
+        return true;
     }
 }
 
@@ -236,8 +236,7 @@ bool rtkit_unmap(rtkit_dev_t *rtk, u64 dva, size_t sz)
         iova_free(rtk->dart_iovad, dva & IOVA_MASK, sz);
         return true;
     } else {
-        rtkit_printf("TODO: implement no IOMMU buffers\n");
-        return false;
+        return true;
     }
 }
 
