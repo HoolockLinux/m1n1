@@ -861,6 +861,10 @@ static bool rtkit_switch_power_state(rtkit_dev_t *rtk, enum rtkit_power_state ta
     }
 
     while (rtk->ap_power != RTKIT_POWER_QUIESCED) {
+        /* Workaround for iOS 10 RTKit acknowledging AP power state 0x0 during sleep */
+        if (rtk->protocol_ver < 11 && rtk->ap_power == RTKIT_POWER_OFF)
+            break;
+
         struct rtkit_message rtk_msg;
         int ret = rtkit_recv(rtk, &rtk_msg);
         bool handled = false;
