@@ -37,6 +37,7 @@ rtkit_dev_t *rtkit_init(const char *name, const struct rtkit_iop_ops *iop_ops, v
                         bool (*init_app_handler)(rtkit_dev_t *rtk, struct rtkit_message *msg));
 bool rtkit_quiesce(rtkit_dev_t *rtk);
 bool rtkit_sleep(rtkit_dev_t *rtk);
+bool rtkit_sleep_workaround(rtkit_dev_t *rtk);
 void rtkit_free(rtkit_dev_t *rtk);
 
 bool rtkit_start_ep(rtkit_dev_t *rtk, u8 ep);

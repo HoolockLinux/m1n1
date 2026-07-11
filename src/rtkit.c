@@ -844,7 +844,8 @@ bool rtkit_boot(rtkit_dev_t *rtk)
     return true;
 }
 
-static bool rtkit_switch_power_state(rtkit_dev_t *rtk, enum rtkit_power_state target)
+static bool rtkit_switch_power_state(rtkit_dev_t *rtk, enum rtkit_power_state target,
+                                     bool workaround)
 {
     struct rtkit_message msg;
 
@@ -861,6 +862,9 @@ static bool rtkit_switch_power_state(rtkit_dev_t *rtk, enum rtkit_power_state ta
     }
 
     while (rtk->ap_power != RTKIT_POWER_QUIESCED) {
+        if (workaround && rtk->ap_power == RTKIT_POWER_OFF)
+            break;
+
         struct rtkit_message rtk_msg;
         int ret = rtkit_recv(rtk, &rtk_msg);
         bool handled = false;
@@ -911,12 +915,22 @@ static bool rtkit_switch_power_state(rtkit_dev_t *rtk, enum rtkit_power_state ta
 
 bool rtkit_quiesce(rtkit_dev_t *rtk)
 {
-    return rtkit_switch_power_state(rtk, RTKIT_POWER_QUIESCED);
+    return rtkit_switch_power_state(rtk, RTKIT_POWER_QUIESCED, false);
 }
 
 bool rtkit_sleep(rtkit_dev_t *rtk)
 {
-    int ret = rtkit_switch_power_state(rtk, RTKIT_POWER_SLEEP);
+    int ret = rtkit_switch_power_state(rtk, RTKIT_POWER_SLEEP, false);
+    if (ret < 0)
+        return ret;
+
+    rtk->iop_ops->cpu_stop(rtk);
+    return 0;
+}
+
+bool rtkit_sleep_workaround(rtkit_dev_t *rtk)
+{
+    int ret = rtkit_switch_power_state(rtk, RTKIT_POWER_SLEEP, true);
     if (ret < 0)
         return ret;
 
