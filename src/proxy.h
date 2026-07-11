@@ -163,6 +163,10 @@ typedef enum {
     P_NVME_SHUTDOWN,
     P_NVME_READ,
     P_NVME_FLUSH,
+    P_ANS1_INIT,
+    P_ANS1_SHUTDOWN,
+    P_ANS1_READ,
+    P_ANS1_RESERVED,
 
     P_MCC_GET_CARVEOUTS = 0x1000,
 
