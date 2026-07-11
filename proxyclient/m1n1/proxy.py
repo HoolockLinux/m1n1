@@ -679,6 +679,14 @@ class M1N1Proxy(Reloadable):
     P_NVME_SHUTDOWN = 0xf01
     P_NVME_READ = 0xf02
     P_NVME_FLUSH = 0xf03
+    P_ANS1_INIT = 0xf04
+    P_ANS1_SHUTDOWN = 0xf05
+    P_ANS1_READ = 0xf06
+    P_ANS1_RESERVED = 0xf07
+    P_MAIN_STORAGE_INIT = 0xf08
+    P_MAIN_STORAGE_SHUTDOWN = 0xf09
+    P_MAIN_STORAGE_READ = 0xf0a
+    P_MAIN_STORAGE_FLUSH = 0xf0b
 
     P_MCC_GET_CARVEOUTS = 0x1000
 
@@ -1184,6 +1192,20 @@ class M1N1Proxy(Reloadable):
         return self.request(self.P_NVME_READ, nsid, lba, bfr)
     def nvme_flush(self, nsid):
         return self.request(self.P_NVME_FLUSH, nsid)
+    def main_storage_init(self):
+        return self.request(self.P_MAIN_STORAGE_INIT)
+    def main_storage_shutdown(self):
+        return self.request(self.P_MAIN_STORAGE_SHUTDOWN)
+    def main_storage_read(self, lba, bfr):
+        return self.request(self.P_MAIN_STORAGE_READ, lba, bfr)
+    def main_storage_flush(self):
+        return self.request(self.P_MAIN_STORAGE_FLUSH)
+    def ans1_init(self):
+        return self.request(self.P_ANS1_INIT)
+    def ans1_shutdown(self):
+        return self.request(self.P_ANS1_SHUTDOWN)
+    def ans1_read(self, lba, bfr):
+        return self.request(self.P_ANS1_READ, lba, bfr)
 
     def mcc_get_carveouts(self):
         return self.request(self.P_MCC_GET_CARVEOUTS)
