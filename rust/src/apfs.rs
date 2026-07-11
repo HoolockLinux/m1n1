@@ -3,7 +3,7 @@
 use crate::{
     c_size_t,
     gpt::GPT,
-    nvme::{alloc_sector_buf, nvme_read, NVMEStorage, SectorBuffer},
+    storage::{alloc_sector_buf, main_storage_read, MainStorage, SectorBuffer},
     println,
 };
 use alloc::{boxed::Box, slice, string::String, vec::Vec};
@@ -174,8 +174,8 @@ fn pread(disk: &mut Partition, pos: u64, target: &mut [u8]) -> Result<(), ()> {
     unsafe {
         for i in 0..target.len().next_multiple_of(4096) / 4096 {
             let lba = disk.offset + i as u64 + pos;
-            if !nvme_read(1, lba, disk.buf.0.as_mut_ptr() as *mut _) {
-                println!("nvme_read({}, {}) failed", 1, lba);
+            if !main_storage_read(lba, disk.buf.0.as_mut_ptr() as *mut _) {
+                println!("main_storage_read({}) failed", lba);
                 return Err(());
             }
             let off = i * 4096;
@@ -358,7 +358,7 @@ fn scan_volume(disk: &mut Partition) -> Result<Vec<u8>, ()> {
 }
 
 fn scan_disks() -> Result<Vec<u8>, ()> {
-    let storage = NVMEStorage::new(1, 0);
+    let storage = MainStorage::new(0);
     let mut pt = GPT::new(storage).map_err(|_| ())?;
     for i in 0..pt.count() {
         let v = pt.index(i).map_err(|_| ())?;
