@@ -6,7 +6,7 @@ use core::ffi::c_void;
 use fatfs::SeekFrom;
 
 extern "C" {
-    fn nvme_read(nsid: u32, lba: u64, buffer: *mut c_void) -> bool;
+    fn main_storage_read(lba: u64, buffer: *mut c_void) -> bool;
 }
 
 const SECTOR_SIZE: usize = 4096;
@@ -22,18 +22,16 @@ fn alloc_sector_buf() -> Box<SectorBuffer> {
     p
 }
 
-pub struct NVMEStorage {
-    nsid: u32,
+pub struct MainStorage {
     offset: u64,
     lba: Option<u64>,
     buf: Box<SectorBuffer>,
     pos: u64,
 }
 
-impl NVMEStorage {
-    pub fn new(nsid: u32, offset: u64) -> NVMEStorage {
-        NVMEStorage {
-            nsid: nsid,
+impl MainStorage {
+    pub fn new(offset: u64) -> MainStorage {
+        MainStorage {
             offset: offset,
             lba: None,
             buf: alloc_sector_buf(),
@@ -42,11 +40,11 @@ impl NVMEStorage {
     }
 }
 
-impl fatfs::IoBase for NVMEStorage {
+impl fatfs::IoBase for MainStorage {
     type Error = Error;
 }
 
-impl fatfs::Read for NVMEStorage {
+impl fatfs::Read for MainStorage {
     fn read(&mut self, mut buf: &mut [u8]) -> Result<usize, Self::Error> {
         let mut read = 0;
 
@@ -57,8 +55,8 @@ impl fatfs::Read for NVMEStorage {
             if Some(lba) != self.lba {
                 self.lba = Some(lba);
                 let lba = lba + self.offset;
-                if !unsafe { nvme_read(self.nsid, lba, self.buf.0.as_mut_ptr() as *mut c_void) } {
-                    println!("nvme_read({}, {}) failed", self.nsid, lba);
+                if !unsafe { main_storage_read(lba, self.buf.0.as_mut_ptr() as *mut c_void) } {
+                    println!("main_storage_read({}) failed", lba);
                     return Err(());
                 }
             }
@@ -72,7 +70,7 @@ impl fatfs::Read for NVMEStorage {
     }
 }
 
-impl fatfs::Write for NVMEStorage {
+impl fatfs::Write for MainStorage {
     fn write(&mut self, _buf: &[u8]) -> Result<usize, Self::Error> {
         Err(())
     }
@@ -81,7 +79,7 @@ impl fatfs::Write for NVMEStorage {
     }
 }
 
-impl fatfs::Seek for NVMEStorage {
+impl fatfs::Seek for MainStorage {
     fn seek(&mut self, from: SeekFrom) -> Result<u64, Self::Error> {
         self.pos = match from {
             SeekFrom::Start(n) => n,
