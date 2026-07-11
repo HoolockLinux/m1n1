@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: MIT */
 
 #include "proxy.h"
+#include "ans1.h"
 #include "cpufreq.h"
 #include "dapf.h"
 #include "dart.h"
@@ -595,6 +596,18 @@ int proxy_process(ProxyRequest *request, ProxyReply *reply)
             break;
         case P_NVME_FLUSH:
             reply->retval = nvme_flush(request->args[0]);
+            break;
+        case P_ANS1_INIT:
+            reply->retval = ans1_init();
+            break;
+        case P_ANS1_SHUTDOWN:
+            ans1_shutdown();
+            break;
+        case P_ANS1_READ:
+            reply->retval = ans1_read_main_storage(request->args[0], (void *)request->args[1]);
+            break;
+        case P_ANS1_RESERVED:
+            reply->status = S_BADCMD;
             break;
 
         case P_MCC_GET_CARVEOUTS:
