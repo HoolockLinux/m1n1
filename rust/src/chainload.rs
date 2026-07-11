@@ -3,8 +3,8 @@
 
 use crate::c_size_t;
 use crate::gpt;
-use crate::nvme;
 use crate::println;
+use crate::storage;
 use alloc::vec::Vec;
 use core::ffi::{c_char, c_int, c_void, CStr};
 use fatfs::{FileSystem, FsOptions, Read, Seek, SeekFrom};
@@ -12,21 +12,21 @@ use uuid::Uuid;
 
 #[derive(Debug)]
 pub enum Error {
-    FATError(fatfs::Error<nvme::Error>),
-    GPTError(gpt::Error<nvme::Error>),
+    FATError(fatfs::Error<storage::Error>),
+    GPTError(gpt::Error<storage::Error>),
     BadArgs,
     PartitionNotFound,
     Unknown,
 }
 
-impl From<fatfs::Error<nvme::Error>> for Error {
-    fn from(err: fatfs::Error<nvme::Error>) -> Error {
+impl From<fatfs::Error<storage::Error>> for Error {
+    fn from(err: fatfs::Error<storage::Error>) -> Error {
         Error::FATError(err)
     }
 }
 
-impl From<gpt::Error<nvme::Error>> for Error {
-    fn from(err: gpt::Error<nvme::Error>) -> Error {
+impl From<gpt::Error<storage::Error>> for Error {
+    fn from(err: gpt::Error<storage::Error>) -> Error {
         Error::GPTError(err)
     }
 }
@@ -40,7 +40,7 @@ fn load_image(spec: &str) -> Result<Vec<u8>, Error> {
     let path = args.next().ok_or(Error::BadArgs)?;
 
     let part = {
-        let storage = nvme::NVMEStorage::new(1, 0);
+        let storage = storage::MainStorage::new(0);
         let mut pt = gpt::GPT::new(storage)?;
 
         //println!("Partitions:");
@@ -54,7 +54,7 @@ fn load_image(spec: &str) -> Result<Vec<u8>, Error> {
 
     println!("Partition offset: {}", offset);
 
-    let storage = nvme::NVMEStorage::new(1, offset);
+    let storage = storage::MainStorage::new(offset);
     let opts = FsOptions::new().update_accessed_date(false);
 
     let fs = FileSystem::new(storage, opts)?;
