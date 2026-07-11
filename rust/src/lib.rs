@@ -21,9 +21,9 @@ pub mod float;
 #[cfg(feature = "chainload")]
 pub mod gpt;
 pub mod gpu;
-#[cfg(feature = "chainload")]
-pub mod nvme;
 pub mod print;
+#[cfg(feature = "chainload")]
+pub mod storage;
 pub mod usb4;
 
 #[cfg(not(test))]
