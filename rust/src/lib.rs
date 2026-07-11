@@ -19,9 +19,9 @@ pub mod float;
 #[cfg(feature = "chainload")]
 pub mod gpt;
 pub mod gpu;
-#[cfg(feature = "chainload")]
-pub mod nvme;
 pub mod print;
+#[cfg(feature = "chainload")]
+pub mod storage;
 
 #[cfg(not(test))]
 use crate::dlmalloc::DLMalloc;
