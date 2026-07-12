@@ -203,7 +203,7 @@ static void smp_stop_cpu(int index, int die, int cluster, int core, u64 impl, u6
 
     // If going into deep sleep, powering off the last core in a cluster kills our register
     // access, so just wait a bit.
-    if (deep_sleep) {
+    if (deep_sleep || !cpu_features->impl_status) {
         udelay(10000);
         printf("  Presumed stopped.\n");
         memset(&spin_table[index], 0, sizeof(struct spin_table));
