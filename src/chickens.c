@@ -77,6 +77,7 @@ const struct midr_part_features features_m1 = {
     .mmu_sprr = true,
     .siq_cfg = true,
     .amx = true,
+    .impl_status = true,
 };
 
 const struct midr_part_features features_m2 = {
@@ -91,6 +92,7 @@ const struct midr_part_features features_m2 = {
     .siq_cfg = true,
     .amx = true,
     .actlr_el2 = true,
+    .impl_status = true,
 };
 
 const struct midr_part_features features_m3 = {
@@ -106,6 +108,7 @@ const struct midr_part_features features_m3 = {
     .amx = true,
     .actlr_el2 = true,
     .counter_redirect = true,
+    .impl_status = true,
 };
 
 // XXX figure out what features are actually available on M4
@@ -113,6 +116,7 @@ const struct midr_part_features features_m4 = {
     .sleep_mode = SLEEP_NONE, // XXX probably new mode required
     .fast_ipi = true,
     .actlr_el2 = true,
+    .impl_status = true,
 };
 
 /*
