@@ -55,6 +55,7 @@ enum IBootCmd {
     IBOOT_SWAP_BEGIN = 15,
     IBOOT_SWAP_SET_LAYER = 16,
     IBOOT_SWAP_END = 18,
+    IBOOT_SET_BACKLIGHT_NITS = 20,
 };
 
 struct get_hpd_resp {
@@ -292,4 +293,13 @@ int dcp_ib_swap_end(dcp_iboot_if_t *iboot)
 {
     memset(iboot->txcmd.payload, 0, 12);
     return dcp_ib_cmd(iboot, IBOOT_SWAP_END, 12);
+}
+
+int dcp_ib_set_bightness(dcp_iboot_if_t *iboot, u32 nits)
+{
+    dcp_backlight_nits_t *bl = (void *)iboot->txcmd.payload;
+    bl->unk = 1;
+    bl->nits = nits & 0x7fffffff;
+
+    return dcp_ib_cmd(iboot, IBOOT_SET_BACKLIGHT_NITS, sizeof(*bl));
 }

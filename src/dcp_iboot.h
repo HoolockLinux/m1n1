@@ -95,6 +95,11 @@ typedef struct {
     u32 w, h, x, y;
 } PACKED dcp_rect_t;
 
+typedef struct {
+    u32 unk;
+	u32 nits;
+} PACKED dcp_backlight_nits_t;
+
 dcp_iboot_if_t *dcp_ib_init(dcp_dev_t *dcp);
 int dcp_ib_shutdown(dcp_iboot_if_t *iboot);
 
@@ -108,5 +113,6 @@ int dcp_ib_swap_begin(dcp_iboot_if_t *iboot);
 int dcp_ib_swap_set_layer(dcp_iboot_if_t *iboot, int layer_id, dcp_layer_t *layer,
                           dcp_rect_t *src_rect, dcp_rect_t *dst_rect);
 int dcp_ib_swap_end(dcp_iboot_if_t *iboot);
+int dcp_ib_set_bightness(dcp_iboot_if_t *iboot, u32 nits);
 
 #endif

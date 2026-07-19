@@ -660,7 +660,10 @@ int display_init(void)
         return display_configure(NULL);
 #endif
     } if (adt_is_compatible(0, "J517AP")) {
-        return display_configure(NULL);
+        int ret = display_configure(NULL);
+        if (ret < 0)
+            return ret;
+        return dcp_ib_set_bightness(iboot, 0x7fffffff);
     }
 
     printf("display: Display is already initialized (%ldx%ld)\n", cur_boot_args.video.width,
