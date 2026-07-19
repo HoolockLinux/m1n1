@@ -77,8 +77,8 @@ void dump_boot_args(struct boot_args *ba)
     printf("  top_of_kdata: 0x%lx\n", ba->top_of_kernel_data);
     printf("  video:\n");
     printf("    base:       0x%lx\n", ba->video.base);
-    printf("    display:    0x%lx\n", ba->video.display);
-    printf("    stride:     0x%lx\n", ba->video.stride);
+    printf("    display:    %lu\n", ba->video.display);
+    printf("    stride:     %lu\n", ba->video.stride);
     printf("    width:      %lu\n", ba->video.width);
     printf("    height:     %lu\n", ba->video.height);
     printf("    depth:      %lubpp\n", ba->video.depth & 0xff);
