@@ -365,9 +365,17 @@ int display_parse_mode(const char *config, dcp_timing_mode_t *mode, struct displ
     return mode->valid;
 }
 
-static int display_swap(u64 iova, u32 stride, u32 width, u32 height)
+static int display_swap(u64 iova, u32 stride, u32 width, u32 height, u32 rotation)
 {
     int ret;
+
+    u8 transform = XFRM_NONE;
+    if (rotation == 90)
+        transform = XFRM_ROT_90;
+    else if (rotation == 180)
+        transform = XFRM_ROT_180;
+    else if (rotation == 270)
+        transform = XFRM_ROT_270;
 
     dcp_layer_t layer = {
         .planes = {{
@@ -381,7 +389,7 @@ static int display_swap(u64 iova, u32 stride, u32 width, u32 height)
         .surface_fmt = FMT_w30r,
         .colorspace = 2,
         .eotf = EOTF_GAMMA_SDR,
-        .transform = XFRM_NONE,
+        .transform = transform,
     };
 
     if ((ret = dcp_ib_set_surface(iboot, &layer)) < 0) {
@@ -493,6 +501,13 @@ int display_configure(const char *config)
         }
     }
 
+    int chosen_node = adt_path_offset("/chosen");
+    u32 rotation = 0;
+    if (ADT_GETPROP(chosen_node, "display-rotation", &rotation) < 0)
+        printf("ADT: failed to get display rotation\n");
+
+    printf("Display rotation: %d\n", rotation);
+
     u64 fb_pa = cur_boot_args.video.base;
     u64 tmp_dva = 0;
 
@@ -521,7 +536,7 @@ int display_configure(const char *config)
 
         // Swap!
         u32 stride = tbest.width * 4;
-        ret = display_swap(tmp_dva, stride, tbest.width, tbest.height);
+        ret = display_swap(tmp_dva, stride, tbest.width, tbest.height, rotation);
         if (ret < 0)
             return ret;
 
@@ -561,7 +576,7 @@ int display_configure(const char *config)
 
     // Swap!
     u32 stride = tbest.width * 4;
-    ret = display_swap(fb_dva, stride, tbest.width, tbest.height);
+    ret = display_swap(fb_dva, stride, tbest.width, tbest.height, rotation);
     if (ret < 0)
         return ret;
 
