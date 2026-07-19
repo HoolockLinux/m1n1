@@ -5,6 +5,7 @@
 #include "malloc.h"
 #include "string.h"
 #include "utils.h"
+#include "adt.h"
 
 #include "dcp/parser.h"
 
