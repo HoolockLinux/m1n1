@@ -755,25 +755,9 @@ bool rtkit_boot(rtkit_dev_t *rtk)
                 if (ep_idx >= rtk->app_ep_start)
                     continue;
 
-                switch (ep_idx) {
-                    case RTKIT_EP_CRASHLOG:
-                        has_crashlog = true;
-                        break;
-                    case RTKIT_EP_DEBUG:
-                        has_debug = true;
-                        break;
-                    case RTKIT_EP_IOREPORT:
-                        has_ioreport = true;
-                        break;
-                    case RTKIT_EP_SYSLOG:
-                        has_syslog = true;
-                        break;
-                    case RTKIT_EP_OSLOG:
-                        has_oslog = true;
-                    case RTKIT_EP_MGMT:
-                        break;
-                    default:
-                        rtkit_printf("unknown system endpoint 0x%02x\n", ep_idx);
+                if (!rtkit_start_ep(rtk, ep_idx)) {
+                    rtkit_printf("failed to start ep: %d\n", ep_idx);
+                    return false;
                 }
             }
         }
@@ -784,10 +768,9 @@ bool rtkit_boot(rtkit_dev_t *rtk)
         msg.msg = FIELD_PREP(MGMT_TYPE, MGMT_MSG_EPMAP_REPLY);
         msg.msg |= FIELD_PREP(MGMT_MSG_EPMAP_BASE, base);
         if (want_ver > 10) {
+            msg.msg |= FIELD_PREP(MGMT_MSG_EPMAP_BITMAP, bitmap);
             if (got_epmap)
                 msg.msg |= MGMT_MSG_EPMAP_REPLY_DONE;
-            else
-                msg.msg |= MGMT_MSG_EPMAP_REPLY_MORE;
         }
 
         msg.ep = RTKIT_EP_MGMT;
@@ -801,18 +784,6 @@ bool rtkit_boot(rtkit_dev_t *rtk)
             if (!rtk->epmap_cb(rtk, base, bitmap))
                 return false;
     }
-
-    /* start all required system endpoints */
-    if (has_debug && !rtkit_start_ep(rtk, RTKIT_EP_DEBUG))
-        return false;
-    if (has_crashlog && !rtkit_start_ep(rtk, RTKIT_EP_CRASHLOG))
-        return false;
-    if (has_syslog && !rtkit_start_ep(rtk, RTKIT_EP_SYSLOG))
-        return false;
-    if (has_ioreport && !rtkit_start_ep(rtk, RTKIT_EP_IOREPORT))
-        return false;
-    if (has_oslog && !rtkit_start_ep(rtk, RTKIT_EP_OSLOG))
-        return false;
 
     while (rtk->iop_power != RTKIT_POWER_ON) {
         struct rtkit_message rtk_msg;
