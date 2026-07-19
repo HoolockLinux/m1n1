@@ -257,7 +257,11 @@ bool asc_can_recv(asc_dev_t *asc)
 
 bool asc_recv(asc_dev_t *asc, struct asc_message *msg)
 {
-    return asc->ops->recv(asc, msg);
+    bool ret = asc->ops->recv(asc, msg);
+
+    dprintf("received msg: %lx %x\n", msg->msg0, msg->msg1);
+	
+    return ret;
 }
 
 bool asc_recv_timeout(asc_dev_t *asc, struct asc_message *msg, u32 delay_usec)
@@ -277,5 +281,7 @@ bool asc_can_send(asc_dev_t *asc)
 
 bool asc_send(asc_dev_t *asc, const struct asc_message *msg)
 {
+    dprintf("sent msg: %lx %x\n", msg->msg0, msg->msg1);
+
     return asc->ops->send(asc, msg);
 }
