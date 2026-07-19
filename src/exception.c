@@ -213,7 +213,7 @@ void print_regs(u64 *regs, int el12)
     u64 far = in_gl ? mrs(SYS_IMP_APL_FAR_GL1)
                     : (el12 ? mrs(FAR_EL12) : (el3 ? mrs(FAR_EL3) : mrs(FAR_EL1)));
 
-    printf("PC:       0x%lx (rel: 0x%lx)\n", elr, elr - (u64)_base);
+    printf("PC:       0x%lx (rel: 0x%lx)\n", elr, elr - (u64)_text_start);
     printf("SP:       0x%lx\n", sp);
     printf("SPSR:     0x%lx\n", spsr);
     if (in_gl12()) {

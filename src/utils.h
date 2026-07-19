@@ -384,6 +384,7 @@ static inline size_t get_page_size(void)
 }
 
 extern char _base[];
+extern char _text_start[];
 extern char _rodata_end[];
 extern char _end[];
 extern char _payload_start[];
