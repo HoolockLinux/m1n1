@@ -673,11 +673,13 @@ int display_init(void)
         display_needs_power_cycle = true;
         return display_configure(NULL);
 #endif
-    } else {
-        printf("display: Display is already initialized (%ldx%ld)\n", cur_boot_args.video.width,
-               cur_boot_args.video.height);
-        return 0;
+    } if (adt_is_compatible(0, "J517AP")) {
+        return display_configure(NULL);
     }
+
+    printf("display: Display is already initialized (%ldx%ld)\n", cur_boot_args.video.width,
+           cur_boot_args.video.height);
+    return 0;
 }
 
 void display_shutdown(dcp_shutdown_mode mode)
