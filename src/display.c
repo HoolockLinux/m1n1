@@ -535,7 +535,7 @@ int display_configure(const char *config)
         }
 
         // Swap!
-        u32 stride = tbest.width * 4;
+        u32 stride = ((tbest.width * 4) + 63) & 0xffffffc0;
         ret = display_swap(tmp_dva, stride, tbest.width, tbest.height, rotation);
         if (ret < 0)
             return ret;
@@ -575,7 +575,7 @@ int display_configure(const char *config)
     }
 
     // Swap!
-    u32 stride = tbest.width * 4;
+    u32 stride = ((tbest.width * 4) + 63) & 0xffffffc0;
     ret = display_swap(fb_dva, stride, tbest.width, tbest.height, rotation);
     if (ret < 0)
         return ret;
