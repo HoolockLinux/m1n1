@@ -37,13 +37,13 @@ int chainload_image(void *image, size_t size, char **vars, size_t var_cnt)
     // SEPFW
     size_t sepfw_off = image_size;
 
-    int anode = adt_path_offset(adt, "/chosen/memory-map");
+    int anode = adt_path_offset("/chosen/memory-map");
     if (anode < 0) {
         printf("chainload: /chosen/memory-map not found\n");
         return -1;
     }
     u64 sepfw[2];
-    if (ADT_GETPROP_ARRAY(adt, anode, "SEPFW", sepfw) < 0) {
+    if (ADT_GETPROP_ARRAY(anode, "SEPFW", sepfw) < 0) {
         printf("chainload: Failed to find SEPFW\n");
         return -1;
     }
@@ -83,7 +83,7 @@ int chainload_image(void *image, size_t size, char **vars, size_t var_cnt)
 
     // Adjust ADT SEPFW address
     sepfw[0] = new_base + sepfw_off;
-    if (adt_setprop(adt, anode, "SEPFW", &sepfw, sizeof(sepfw)) < 0) {
+    if (adt_setprop(anode, "SEPFW", &sepfw, sizeof(sepfw)) < 0) {
         printf("chainload: Failed to set SEPFW prop\n");
         free(new_image);
         return -1;

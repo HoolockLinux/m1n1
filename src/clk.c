@@ -14,7 +14,7 @@
 void clk_set_mca_muxes(void)
 {
     int path[8];
-    int node = adt_path_offset_trace(adt, "/arm-io/mca-switch", path);
+    int node = adt_path_offset_trace("/arm-io/mca-switch", path);
 
     if (node < 0) {
         printf("mca-switch node not found!\n");
@@ -22,7 +22,7 @@ void clk_set_mca_muxes(void)
     }
 
     u64 mca_clk_base, mca_clk_size;
-    if (adt_get_reg(adt, path, "reg", 2, &mca_clk_base, &mca_clk_size)) {
+    if (adt_get_reg(path, "reg", 2, &mca_clk_base, &mca_clk_size)) {
         printf("Failed to get mca-switch reg property!\n");
         return;
     }

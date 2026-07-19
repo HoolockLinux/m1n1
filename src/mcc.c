@@ -229,23 +229,23 @@ int mcc_init_t8103(int node, int *path, bool t8112)
     mcc_regs[0].plane_count = T8103_PLANES;
     mcc_regs[0].dcs_stride = T8103_DCS_STRIDE;
 
-    if (adt_get_reg(adt, path, "reg", 0, &mcc_regs[0].global_base, NULL)) {
+    if (adt_get_reg(path, "reg", 0, &mcc_regs[0].global_base, NULL)) {
         printf("MCC: Failed to get reg property 0!\n");
         return -1;
     }
 
-    if (adt_get_reg(adt, path, "reg", 1, &mcc_regs[0].plane_base, NULL)) {
+    if (adt_get_reg(path, "reg", 1, &mcc_regs[0].plane_base, NULL)) {
         printf("MCC: Failed to get reg property 1!\n");
         return -1;
     }
 
-    if (adt_get_reg(adt, path, "reg", 2, &mcc_regs[0].dcs_base, NULL)) {
+    if (adt_get_reg(path, "reg", 2, &mcc_regs[0].dcs_base, NULL)) {
         printf("MCC: Failed to get reg property 2!\n");
         return -1;
     }
 
     u32 val;
-    if (ADT_GETPROP(adt, node, "dcs_num_channels", &val) < 0) {
+    if (ADT_GETPROP(node, "dcs_num_channels", &val) < 0) {
         printf("MCC: Failed to get dcs_num_channels property!\n");
         return -1;
     }
@@ -270,7 +270,7 @@ int mcc_init_t6000(int node, int *path, bool t602x)
     u32 reg_len;
     u32 reg_offset = t602x ? 2 : 0;
 
-    if (!adt_getprop(adt, node, "reg", &reg_len)) {
+    if (!adt_getprop(node, "reg", &reg_len)) {
         printf("MCC: Failed to get reg property!\n");
         return -1;
     }
@@ -286,7 +286,7 @@ int mcc_init_t6000(int node, int *path, bool t602x)
 
     for (int i = 0; i < mcc_count; i++) {
         u64 base;
-        if (adt_get_reg(adt, path, "reg", i + reg_offset, &base, NULL)) {
+        if (adt_get_reg(path, "reg", i + reg_offset, &base, NULL)) {
             printf("MCC: Failed to get reg index %d!\n", i + reg_offset);
             return -1;
         }
@@ -323,7 +323,7 @@ int mcc_init_t6031(int node, int *path)
     u32 reg_len;
     u32 reg_offset = 3;
 
-    if (!adt_getprop(adt, node, "reg", &reg_len)) {
+    if (!adt_getprop(node, "reg", &reg_len)) {
         printf("MCC: Failed to get reg property!\n");
         return -1;
     }
@@ -340,19 +340,19 @@ int mcc_init_t6031(int node, int *path)
     u32 plane_count = 0;
     u32 dcs_count = 0;
 
-    if (!ADT_GETPROP(adt, node, "dcs-count-per-amcc", &dcs_count)) {
+    if (!ADT_GETPROP(node, "dcs-count-per-amcc", &dcs_count)) {
         printf("MCC: Failed to get dcs count!\n");
         return -1;
     }
 
-    if (!ADT_GETPROP(adt, node, "plane-count-per-amcc", &plane_count)) {
+    if (!ADT_GETPROP(node, "plane-count-per-amcc", &plane_count)) {
         printf("MCC: Failed to get plane count!\n");
         return -1;
     }
 
     for (int i = 0; i < mcc_count; i++) {
         u64 base;
-        if (adt_get_reg(adt, path, "reg", i + reg_offset, &base, NULL)) {
+        if (adt_get_reg(path, "reg", i + reg_offset, &base, NULL)) {
             printf("MCC: Failed to get reg index %d!\n", i + reg_offset);
             return -1;
         }
@@ -387,25 +387,25 @@ int mcc_init_t6031(int node, int *path)
 int mcc_init(void)
 {
     int path[8];
-    int node = adt_path_offset_trace(adt, "/arm-io/mcc", path);
+    int node = adt_path_offset_trace("/arm-io/mcc", path);
 
     if (node < 0) {
         printf("MCC: MCC node not found!\n");
         return -1;
     }
 
-    if (adt_is_compatible(adt, node, "mcc,t8103")) {
+    if (adt_is_compatible(node, "mcc,t8103")) {
         return mcc_init_t8103(node, path, false);
-    } else if (adt_is_compatible(adt, node, "mcc,t8112")) {
+    } else if (adt_is_compatible(node, "mcc,t8112")) {
         return mcc_init_t8103(node, path, true);
-    } else if (adt_is_compatible(adt, node, "mcc,t6000")) {
+    } else if (adt_is_compatible(node, "mcc,t6000")) {
         return mcc_init_t6000(node, path, false);
-    } else if (adt_is_compatible(adt, node, "mcc,t6020")) {
+    } else if (adt_is_compatible(node, "mcc,t6020")) {
         return mcc_init_t6000(node, path, true);
-    } else if (adt_is_compatible(adt, node, "mcc,t6031")) {
+    } else if (adt_is_compatible(node, "mcc,t6031")) {
         return mcc_init_t6031(node, path);
     } else {
-        printf("MCC: Unsupported version:%s\n", adt_get_property(adt, node, "compatible")->value);
+        printf("MCC: Unsupported version:%s\n", adt_get_property(node, "compatible")->value);
         return -1;
     }
 }

@@ -718,7 +718,7 @@ unsafe extern "C" {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn adt_check_header(_dt: *const c_void) -> c_int {
+pub unsafe extern "C" fn adt_check_header() -> c_int {
     unsafe {
         match ADTNode::from_ptr(adt as *const ADTNode) {
             Ok(_) => 0,
@@ -728,7 +728,7 @@ pub unsafe extern "C" fn adt_check_header(_dt: *const c_void) -> c_int {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn adt_first_property_offset(_dt: *const c_void, offset: c_int) -> c_int {
+pub unsafe extern "C" fn adt_first_property_offset(offset: c_int) -> c_int {
     let ptr: *const ADTNode = unsafe { adt.add(offset as usize) as *const ADTNode };
 
     let p: *const u8 = ADTNode::from_ptr(ptr)
@@ -743,7 +743,7 @@ pub unsafe extern "C" fn adt_first_property_offset(_dt: *const c_void, offset: c
 // This function has load-bearing UB on the C side... The sound Rust equivalent
 // breaks this. Recreate the UB here rather than call the new Rust function.
 #[no_mangle]
-pub unsafe extern "C" fn adt_next_property_offset(_dt: *const c_void, offset: c_int) -> c_int {
+pub unsafe extern "C" fn adt_next_property_offset(offset: c_int) -> c_int {
     let ptr: usize = unsafe { adt.add(offset as usize) as usize };
     let p = ADTProperty::from_ptr(ptr).unwrap();
     unsafe {
@@ -756,34 +756,33 @@ pub unsafe extern "C" fn adt_next_property_offset(_dt: *const c_void, offset: c_
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn adt_first_child_offset(_dt: *const c_void, offset: c_int) -> c_int {
+pub unsafe extern "C" fn adt_first_child_offset(offset: c_int) -> c_int {
     let ptr: *const ADTNode = unsafe { adt.add(offset as usize) as *const ADTNode };
     let n = ADTNode::from_ptr(ptr).unwrap();
     unsafe { n.first_child().unwrap().as_ptr().sub(adt as usize) as c_int }
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn adt_next_sibling_offset(_dt: *const c_void, offset: c_int) -> c_int {
+pub unsafe extern "C" fn adt_next_sibling_offset(offset: c_int) -> c_int {
     let ptr: *const ADTNode = unsafe { adt.add(offset as usize) as *const ADTNode };
     let n = ADTNode::from_ptr(ptr).unwrap();
     unsafe { n.next_sibling().unwrap().as_ptr().sub(adt as usize) as c_int }
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn adt_get_child_count(_dt: *const c_void, offset: c_int) -> c_int {
+pub unsafe extern "C" fn adt_get_child_count(offset: c_int) -> c_int {
     let ptr: *const ADTNode = unsafe { adt.add(offset as usize) as *const ADTNode };
     ADTNode::from_ptr(ptr).unwrap().child_count as c_int
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn adt_get_property_count(_dt: *const c_void, offset: c_int) -> c_int {
+pub unsafe extern "C" fn adt_get_property_count(offset: c_int) -> c_int {
     let ptr: *const ADTNode = unsafe { adt.add(offset as usize) as *const ADTNode };
     ADTNode::from_ptr(ptr).unwrap().property_count as c_int
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn adt_get_property_by_offset(
-    _dt: *const c_void,
     offset: c_int,
 ) -> *const c_void {
     let ptr: usize = unsafe { adt.add(offset as usize) as usize };
@@ -795,7 +794,6 @@ pub unsafe extern "C" fn adt_get_property_by_offset(
 
 #[no_mangle]
 pub unsafe extern "C" fn adt_get_property(
-    _dt: *const c_void,
     offset: c_int,
     name: *const c_char,
 ) -> *const c_void {
@@ -811,7 +809,6 @@ pub unsafe extern "C" fn adt_get_property(
 
 #[no_mangle]
 pub unsafe extern "C" fn adt_getprop(
-    _dt: *const c_void,
     offset: c_int,
     name: *const c_char,
     lenp: *mut c_uint,
@@ -833,7 +830,6 @@ pub unsafe extern "C" fn adt_getprop(
 
 #[no_mangle]
 pub unsafe extern "C" fn adt_getprop_by_offset(
-    _dt: *const c_void,
     offset: c_int,
     namep: *mut *const c_char,
     lenp: *mut c_uint,
@@ -857,7 +853,6 @@ pub unsafe extern "C" fn adt_getprop_by_offset(
 
 #[no_mangle]
 pub unsafe extern "C" fn adt_setprop(
-    _dt: *const c_void,
     offset: c_int,
     name: *const c_char,
     val: *const c_void,
@@ -890,7 +885,6 @@ pub unsafe extern "C" fn adt_setprop(
 
 #[no_mangle]
 pub unsafe extern "C" fn adt_subnode_offset(
-    _dt: *const c_void,
     offset: c_int,
     name: *const c_char,
 ) -> c_int {
@@ -910,7 +904,6 @@ pub unsafe extern "C" fn adt_subnode_offset(
 
 #[no_mangle]
 pub unsafe extern "C" fn adt_is_compatible(
-    _dt: *const c_void,
     offset: c_int,
     compat: *const c_char,
 ) -> bool {
@@ -924,7 +917,6 @@ pub unsafe extern "C" fn adt_is_compatible(
 
 #[no_mangle]
 pub unsafe extern "C" fn adt_is_compatible_at(
-    _dt: *const c_void,
     offset: c_int,
     compat: *const c_char,
     index: usize,
@@ -935,14 +927,13 @@ pub unsafe extern "C" fn adt_is_compatible_at(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn adt_get_name(_dt: *const c_void, offset: c_int) -> *const c_char {
+pub unsafe extern "C" fn adt_get_name(offset: c_int) -> *const c_char {
     let ptr: *const ADTNode = unsafe { adt.add(offset as usize) as *const ADTNode };
     ADTNode::from_ptr(ptr).unwrap().name().unwrap().as_ptr() as *const c_char
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn adt_getprop_copy(
-    _dt: *const c_void,
     offset: c_int,
     name: *const c_char,
     out: *mut c_void,
@@ -975,7 +966,6 @@ pub unsafe extern "C" fn adt_getprop_copy(
 
 #[no_mangle]
 pub unsafe extern "C" fn adt_path_offset_trace(
-    _dt: *const c_void,
     path: *const c_char,
     offsets: *mut i32,
 ) -> c_int {
@@ -1007,7 +997,7 @@ pub unsafe extern "C" fn adt_path_offset_trace(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn adt_path_offset(_dt: *const c_void, path: *const c_char) -> c_int {
+pub unsafe extern "C" fn adt_path_offset(path: *const c_char) -> c_int {
     let strpath: &str = unsafe { CStr::from_ptr(path).to_str().unwrap() };
 
     match ADTNode::from_path(strpath) {
@@ -1018,7 +1008,6 @@ pub unsafe extern "C" fn adt_path_offset(_dt: *const c_void, path: *const c_char
 
 #[no_mangle]
 pub unsafe extern "C" fn adt_get_reg(
-    _dt: *const c_void,
     offsets: *mut i32,
     prop: *const c_char,
     i: c_int,

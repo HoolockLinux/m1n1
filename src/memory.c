@@ -390,13 +390,13 @@ void mmu_rm_mapping(u64 from, size_t size)
 
 static void mmu_map_mmio(void)
 {
-    int node = adt_path_offset(adt, "/arm-io");
+    int node = adt_path_offset("/arm-io");
     if (node < 0) {
         printf("MMU: ARM-IO node not found!\n");
         return;
     }
     u32 ranges_len;
-    const u32 *ranges = adt_getprop(adt, node, "ranges", &ranges_len);
+    const u32 *ranges = adt_getprop(node, "ranges", &ranges_len);
     if (!ranges) {
         printf("MMU: Failed to get ranges property!\n");
         return;
@@ -419,13 +419,13 @@ static void mmu_map_mmio(void)
 static void mmu_remap_ranges(void)
 {
 
-    int node = adt_path_offset(adt, "/defaults");
+    int node = adt_path_offset("/defaults");
     if (node < 0) {
         printf("MMU: defaults node not found!\n");
         return;
     }
     u32 ranges_len;
-    const u32 *ranges = adt_getprop(adt, node, "pmap-io-ranges", &ranges_len);
+    const u32 *ranges = adt_getprop(node, "pmap-io-ranges", &ranges_len);
     if (!ranges) {
         printf("MMU: Failed to get pmap-io-ranges property!\n");
         return;

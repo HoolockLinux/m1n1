@@ -161,7 +161,7 @@ int display_get_vram(u64 *paddr, u64 *size)
 {
     int ret = 0;
     int adt_path[4];
-    int node = adt_path_offset_trace(adt, "/vram", adt_path);
+    int node = adt_path_offset_trace("/vram", adt_path);
 
     if (node < 0) {
         printf("display: '/vram' not found\n");
@@ -173,7 +173,7 @@ int display_get_vram(u64 *paddr, u64 *size)
         pp++;
     adt_path[pp + 1] = 0;
 
-    ret = adt_get_reg(adt, adt_path, "reg", 0, paddr, size);
+    ret = adt_get_reg(adt_path, "reg", 0, paddr, size);
     if (ret < 0) {
         printf("display: failed to read /vram/reg\n");
         return -1;
@@ -247,16 +247,16 @@ const display_config_t *display_get_config(void)
 {
     const display_config_t *conf = NULL;
 
-    if (adt_is_compatible(adt, 0, "J473AP"))
+    if (adt_is_compatible(0, "J473AP"))
         conf = &display_config_m2;
-    else if (adt_is_compatible(adt, 0, "J474sAP") || adt_is_compatible(adt, 0, "J475cAP"))
+    else if (adt_is_compatible(0, "J474sAP") || adt_is_compatible(0, "J475cAP"))
         conf = &display_config_m2_pro_max;
-    else if (adt_is_compatible(adt, 0, "J180dAP") || adt_is_compatible(adt, 0, "J475dAP"))
+    else if (adt_is_compatible(0, "J180dAP") || adt_is_compatible(0, "J475dAP"))
         conf = &display_config_m2_ultra;
     else
         conf = &display_config_m1;
 
-    has_dcp = adt_path_offset(adt, conf->dcp) > 0;
+    has_dcp = adt_path_offset(conf->dcp) > 0;
     if (!has_dcp) {
         return NULL;
     }
@@ -543,17 +543,17 @@ int display_configure(const char *config)
 
         /* update ADT with the physical address of the new framebuffer */
         u64 fb_reg[2] = {fb_pa, size};
-        int node = adt_path_offset(adt, "vram");
+        int node = adt_path_offset("vram");
         if (node >= 0) {
-            // TODO: adt_set_reg(adt, node, "vram", fb_pa, size);?
-            ret = adt_setprop(adt, node, "reg", &fb_reg, sizeof(fb_reg));
+            // TODO: adt_set_reg(node, "vram", fb_pa, size);?
+            ret = adt_setprop(node, "reg", &fb_reg, sizeof(fb_reg));
             if (ret < 0)
                 printf("display: failed to update '/vram'\n");
         }
-        node = adt_path_offset(adt, "/chosen/carveout-memory-map");
+        node = adt_path_offset("/chosen/carveout-memory-map");
         if (node >= 0) {
-            // TODO: adt_set_reg(adt, node, "vram", fb_pa, size);?
-            ret = adt_setprop(adt, node, "region-id-14", &fb_reg, sizeof(fb_reg));
+            // TODO: adt_set_reg(node, "vram", fb_pa, size);?
+            ret = adt_setprop(node, "region-id-14", &fb_reg, sizeof(fb_reg));
             if (ret < 0)
                 printf("display: failed to update '/chosen/carveout-memory-map/region-id-14'\n");
         }
@@ -610,7 +610,7 @@ int display_configure(const char *config)
 int display_init(void)
 {
     const char *disp_path;
-    if (adt_is_compatible(adt, 0, "J180dAP") || adt_is_compatible(adt, 0, "J475dAP"))
+    if (adt_is_compatible(0, "J180dAP") || adt_is_compatible(0, "J475dAP"))
         disp_path = "/arm-io/dispext4";
     else
         disp_path = "/arm-io/disp0";
@@ -618,22 +618,22 @@ int display_init(void)
     bool has_notch = false;
     UNUSED(has_notch);
 
-    int product = adt_path_offset(adt, "/product");
+    int product = adt_path_offset("/product");
     if (product < 0) {
         printf("/product node not found!\n");
     } else {
         u32 val = 0;
-        ADT_GETPROP(adt, product, "partially-occluded-display", &val);
+        ADT_GETPROP(product, "partially-occluded-display", &val);
         has_notch = !!val;
     }
 
-    int node = adt_path_offset(adt, disp_path);
+    int node = adt_path_offset(disp_path);
     if (node < 0) {
         printf("%s node not found!\n", disp_path);
         return -1;
     }
 
-    display_is_external = adt_getprop(adt, node, "external", NULL);
+    display_is_external = adt_getprop(node, "external", NULL);
     if (display_is_external)
         printf("display: Display is external\n");
     else

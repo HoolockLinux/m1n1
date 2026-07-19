@@ -41,21 +41,21 @@ int sep_init(void)
     const char *path = "/arm-io/sep";
     int sep_path[8];
 
-    int node = adt_path_offset_trace(adt, path, sep_path);
+    int node = adt_path_offset_trace(path, sep_path);
     if (node < 0) {
         printf("sep: Error getting sep node %s\n", path);
         return -1;
     }
 
     u64 base;
-    if (adt_get_reg(adt, sep_path, "reg", 0, &base, NULL) < 0) {
+    if (adt_get_reg(sep_path, "reg", 0, &base, NULL) < 0) {
         printf("sep: Error getting akf %s base address.\n", path);
         return -1;
     }
 
     sep_dev = calloc(0, sizeof(*sep_dev));
 
-    if (adt_is_compatible(adt, node, "iop,s5l8960x") || adt_is_compatible(adt, node, "iop,s8000")) {
+    if (adt_is_compatible(node, "iop,s5l8960x") || adt_is_compatible(node, "iop,s8000")) {
         sep_dev->type = SEP_MBOX_TYPE_AKF;
     } else {
         sep_dev->type = SEP_MBOX_TYPE_ASC;

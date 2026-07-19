@@ -23,7 +23,7 @@ static int dapf_init_t8020(const char *path, u64 base, int node)
 {
     u32 length;
     const char *prop = "filter-data-instance-0";
-    const struct dapf_t8020_config *config = adt_getprop(adt, node, prop, &length);
+    const struct dapf_t8020_config *config = adt_getprop(node, prop, &length);
 
     if (!config || !length || (length % sizeof(*config)) != 0) {
         printf("dapf: Error getting ADT node %s property %s.\n", path, prop);
@@ -103,7 +103,7 @@ static int dapf_init_t8110(const char *path, u64 base, int node)
 {
     u32 length;
     const char *prop = "dapf-instance-0";
-    const void *config = adt_getprop(adt, node, prop, &length);
+    const void *config = adt_getprop(node, prop, &length);
 
     if (!config || !length) {
         printf("dapf: Error getting ADT node %s property %s.\n", path, prop);
@@ -127,29 +127,29 @@ int dapf_init(const char *path, int index)
 {
     int ret;
     int dart_path[8];
-    int node = adt_path_offset_trace(adt, path, dart_path);
+    int node = adt_path_offset_trace(path, dart_path);
     if (node < 0) {
         printf("dapf: Error getting DAPF %s node.\n", path);
         return -1;
     }
 
     u32 pwr;
-    if (!adt_getprop(adt, node, "clock-gates", &pwr))
+    if (!adt_getprop(node, "clock-gates", &pwr))
         pwr = 0;
     if (pwr && (pmgr_adt_power_enable(path) < 0))
         return -1;
 
     u64 base;
-    if (adt_get_reg(adt, dart_path, "reg", index, &base, NULL) < 0) {
+    if (adt_get_reg(dart_path, "reg", index, &base, NULL) < 0) {
         printf("dapf: Error getting DAPF %s base address.\n", path);
         return -1;
     }
 
-    if (adt_is_compatible(adt, node, "dart,t8020")) {
+    if (adt_is_compatible(node, "dart,t8020")) {
         ret = dapf_init_t8020(path, base, node);
-    } else if (adt_is_compatible(adt, node, "dart,t6000")) {
+    } else if (adt_is_compatible(node, "dart,t6000")) {
         ret = dapf_init_t8020(path, base, node);
-    } else if (adt_is_compatible(adt, node, "dart,t8110")) {
+    } else if (adt_is_compatible(node, "dart,t8110")) {
         ret = dapf_init_t8110(path, base, node);
     } else {
         printf("dapf: DAPF %s at 0x%lx is of an unknown type\n", path, base);
@@ -182,7 +182,7 @@ int dapf_init_all(void)
     struct entry *entry = dapf_entries;
 
     while (entry->path != NULL) {
-        if (adt_path_offset(adt, entry->path) < 0) {
+        if (adt_path_offset(entry->path) < 0) {
             entry++;
             continue;
         }

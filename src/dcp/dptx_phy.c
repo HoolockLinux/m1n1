@@ -464,15 +464,15 @@ dptx_phy_t *dptx_phy_init(const char *phy_node, u32 dcp_index)
     enum dptx_type type;
     int adt_phy_path[8];
 
-    int node = adt_path_offset_trace(adt, phy_node, adt_phy_path);
+    int node = adt_path_offset_trace(phy_node, adt_phy_path);
     if (node < 0) {
         printf("DPtx-phy: Error getting phy node %s\n", phy_node);
         return NULL;
     }
 
-    if (adt_is_compatible(adt, node, "dptx-phy,t8112"))
+    if (adt_is_compatible(node, "dptx-phy,t8112"))
         type = DPTX_PHY_T8112;
-    else if (adt_is_compatible(adt, node, "dptx-phy,t602x"))
+    else if (adt_is_compatible(node, "dptx-phy,t602x"))
         type = DPTX_PHY_T602X;
     else {
         printf("DPtx-phy: dptx-phy node %s is not compatible\n", phy_node);
@@ -486,12 +486,12 @@ dptx_phy_t *dptx_phy_init(const char *phy_node, u32 dcp_index)
     phy->type = type;
     phy->dcp_index = dcp_index;
 
-    if (adt_get_reg(adt, adt_phy_path, "reg", 0, &phy->regs[0], NULL) < 0) {
+    if (adt_get_reg(adt_phy_path, "reg", 0, &phy->regs[0], NULL) < 0) {
         printf("DPtx-phy: failed to get %s.reg[0]\n", phy_node);
         goto out_err;
     }
 
-    if (adt_get_reg(adt, adt_phy_path, "reg", 1, &phy->regs[1], NULL) < 0) {
+    if (adt_get_reg(adt_phy_path, "reg", 1, &phy->regs[1], NULL) < 0) {
         printf("DPtx-phy: failed to get %s.reg[1]\n", phy_node);
         goto out_err;
     }

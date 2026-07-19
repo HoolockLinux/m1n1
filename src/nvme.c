@@ -371,18 +371,18 @@ bool nvme_init(void)
     }
 
     int adt_path[8];
-    int node = adt_path_offset_trace(adt, "/arm-io/ans", adt_path);
+    int node = adt_path_offset_trace("/arm-io/ans", adt_path);
     if (node < 0) {
         printf("nvme: Error getting NVMe node /arm-io/ans\n");
         return NULL;
     }
 
-    if (adt_get_reg(adt, adt_path, "reg", 3, &nvme_base, NULL) < 0) {
+    if (adt_get_reg(adt_path, "reg", 3, &nvme_base, NULL) < 0) {
         printf("nvme: Error getting NVMe base address.\n");
         return NULL;
     }
 
-    if (adt_is_compatible(adt, node, "iop-ans2,t8015")) {
+    if (adt_is_compatible(node, "iop-ans2,t8015")) {
         nvme_type = NVME_TYPE_T8015;
         nvme_queue_size = NVME_QUEUE_SIZE_T8015;
     } else {
@@ -391,7 +391,7 @@ bool nvme_init(void)
     }
 
     u32 cg;
-    if (ADT_GETPROP(adt, node, "clock-gates", &cg) < 0) {
+    if (ADT_GETPROP(node, "clock-gates", &cg) < 0) {
         printf("nvme: clock-gates not set\n");
         nvme_die = (nvme_base >> 37) & 3;
     } else {

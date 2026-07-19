@@ -40,8 +40,8 @@ u32 board_id = ~0, chip_id = ~0;
 
 void get_device_info(void)
 {
-    const char *model = (const char *)adt_getprop(adt, 0, "model", NULL);
-    const char *target = (const char *)adt_getprop(adt, 0, "target-type", NULL);
+    const char *model = (const char *)adt_getprop(0, "model", NULL);
+    const char *target = (const char *)adt_getprop(0, "target-type", NULL);
 
     printf("Device info:\n");
 
@@ -53,11 +53,11 @@ void get_device_info(void)
 
     is_mac = !!strstr(model, "Mac");
 
-    int chosen = adt_path_offset(adt, "/chosen");
+    int chosen = adt_path_offset("/chosen");
     if (chosen > 0) {
-        if (ADT_GETPROP(adt, chosen, "board-id", &board_id) < 0)
+        if (ADT_GETPROP(chosen, "board-id", &board_id) < 0)
             printf("Failed to find board-id\n");
-        if (ADT_GETPROP(adt, chosen, "chip-id", &chip_id) < 0)
+        if (ADT_GETPROP(chosen, "chip-id", &chip_id) < 0)
             printf("Failed to find chip-id\n");
 
         printf("  Board-ID: 0x%x\n", board_id);
@@ -75,11 +75,11 @@ void run_actions(void)
 
 #ifndef BRINGUP
 #ifdef EARLY_PROXY_TIMEOUT
-    int node = adt_path_offset(adt, "/chosen/asmb");
+    int node = adt_path_offset("/chosen/asmb");
     u64 lp_sip0 = 0;
 
     if (node >= 0) {
-        ADT_GETPROP(adt, node, "lp-sip0", &lp_sip0);
+        ADT_GETPROP(node, "lp-sip0", &lp_sip0);
         printf("Boot policy: sip0 = %ld\n", lp_sip0);
     }
 

@@ -213,7 +213,7 @@ static bool rtkit_asc_recv_timeout(struct rtkit_dev *rtk, struct rtkit_message *
 static void rtkit_asc_init_fini(struct rtkit_dev *rtk)
 {
     int iop_node = asc_get_iop_node((asc_dev_t *)rtk->mbox);
-    ADT_GETPROP(adt, iop_node, "asc-dram-mask", &rtk->dva_base);
+    ADT_GETPROP(iop_node, "asc-dram-mask", &rtk->dva_base);
 }
 
 static const struct rtkit_iop_ops __rtkit_asc_iop_ops = {

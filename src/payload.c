@@ -290,7 +290,7 @@ bool payload_logo(void **custom_128, void **custom_256)
 
 int payload_run(void)
 {
-    const char *target = adt_getprop(adt, 0, "target-type", NULL);
+    const char *target = adt_getprop(0, "target-type", NULL);
     if (target) {
         strcpy(expect_compatible, "apple,");
         char *p = expect_compatible + strlen(expect_compatible);

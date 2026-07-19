@@ -302,7 +302,7 @@ void cpu_sleep(bool deep)
 
 bool main_storage_init(void)
 {
-    int ans_node = adt_path_offset(adt, "/arm-io/ans");
+    int ans_node = adt_path_offset("/arm-io/ans");
 
     if (ans_node < 0) {
         /* A9/A9X/A10/A10X */
@@ -310,7 +310,7 @@ bool main_storage_init(void)
         return false;
     }
 
-    if (adt_is_compatible(adt, ans_node, "iop,s5l8960x")) {
+    if (adt_is_compatible(ans_node, "iop,s5l8960x")) {
         storage_type = STORAGE_TYPE_ANS1;
         return ans1_init();
     } else {

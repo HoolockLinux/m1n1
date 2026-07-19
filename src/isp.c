@@ -54,13 +54,13 @@ int isp_init(void)
     const char *dart_path = "/arm-io/dart-isp";
 
     int adt_path[8], adt_isp_path[8];
-    int isp_node = adt_path_offset_trace(adt, isp_path, adt_isp_path);
-    int node = adt_path_offset_trace(adt, dart_path, adt_path);
+    int isp_node = adt_path_offset_trace(isp_path, adt_isp_path);
+    int node = adt_path_offset_trace(dart_path, adt_path);
     if (node < 0 || isp_node < 0) {
         isp_path = "/arm-io/isp0";
         dart_path = "/arm-io/dart-isp0";
-        isp_node = adt_path_offset_trace(adt, isp_path, adt_isp_path);
-        node = adt_path_offset_trace(adt, dart_path, adt_path);
+        isp_node = adt_path_offset_trace(isp_path, adt_isp_path);
+        node = adt_path_offset_trace(dart_path, adt_path);
     }
     if (node < 0)
         return 0;
@@ -70,11 +70,11 @@ int isp_init(void)
 
     u64 isp_base;
     u64 pmgr_base;
-    err = adt_get_reg(adt, adt_isp_path, "reg", 0, &isp_base, NULL);
+    err = adt_get_reg(adt_isp_path, "reg", 0, &isp_base, NULL);
     if (err)
         return err;
 
-    err = adt_get_reg(adt, adt_isp_path, "reg", 1, &pmgr_base, NULL);
+    err = adt_get_reg(adt_isp_path, "reg", 1, &pmgr_base, NULL);
     if (err)
         return err;
 
@@ -168,7 +168,7 @@ int isp_init(void)
     const struct adt_segment_ranges *seg;
     u32 segments_len;
 
-    seg = adt_getprop(adt, isp_node, "segment-ranges", &segments_len);
+    seg = adt_getprop(isp_node, "segment-ranges", &segments_len);
     unsigned int count = segments_len / sizeof(*seg);
 
     heap_iova = seg[count - 1].iova + seg[count - 1].size;

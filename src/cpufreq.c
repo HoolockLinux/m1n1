@@ -220,12 +220,12 @@ int cpufreq_init_cluster(const struct cluster_t *cluster, const struct feat_t *f
     int pmgr_path[8];
     u64 pmgr_reg;
 
-    if (adt_path_offset_trace(adt, "/arm-io/pmgr", pmgr_path) < 0) {
+    if (adt_path_offset_trace("/arm-io/pmgr", pmgr_path) < 0) {
         printf("Error getting /arm-io/pmgr node\n");
         return -1;
     }
 
-    if (adt_get_reg(adt, pmgr_path, "reg", 0, &pmgr_reg, NULL) < 0) {
+    if (adt_get_reg(pmgr_path, "reg", 0, &pmgr_reg, NULL) < 0) {
         printf("Error getting /arm-io/pmgr regs\n");
         return -1;
     }

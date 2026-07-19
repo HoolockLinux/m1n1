@@ -46,7 +46,7 @@ struct aic *aic;
 
 static int aic23_init(int version, int node)
 {
-    int ret = ADT_GETPROP(adt, node, "aic-iack-offset", &aic->regs.event);
+    int ret = ADT_GETPROP(node, "aic-iack-offset", &aic->regs.event);
     if (ret < 0) {
         printf("AIC: failed to get property aic-iack-offset\n");
         return ret;
@@ -54,7 +54,7 @@ static int aic23_init(int version, int node)
 
     int32_t cap0_offset = aic->cap0_offset;
     if (cap0_offset == -1) {
-        ret = ADT_GETPROP(adt, node, "cap0-offset", &cap0_offset);
+        ret = ADT_GETPROP(node, "cap0-offset", &cap0_offset);
         if (ret < 0) {
             printf("AIC: failed to get property cap0-offset\n");
         }
@@ -65,7 +65,7 @@ static int aic23_init(int version, int node)
 
     int32_t maxnumirq_offset = aic->maxnumirq_offset;
     if (maxnumirq_offset == -1) {
-        ret = ADT_GETPROP(adt, node, "maxnumirq-offset", &maxnumirq_offset);
+        ret = ADT_GETPROP(node, "maxnumirq-offset", &maxnumirq_offset);
         if (ret < 0) {
             printf("AIC: failed to get property maxnumirq-offset\n");
         }
@@ -90,7 +90,7 @@ static int aic23_init(int version, int node)
      * AIC2, but fatal on AIC3.
      */
     u32 config_base;
-    if (ADT_GETPROP(adt, node, "extint-baseaddress", &config_base) > 0) {
+    if (ADT_GETPROP(node, "extint-baseaddress", &config_base) > 0) {
         aic->regs.config = config_base;
     }
 
@@ -112,11 +112,11 @@ static int aic23_init(int version, int node)
     off += sizeof(u32) * (aic->max_irq >> 5); /* HW_STATE */
 
     /* Fill in the strides dynamically if we can */
-    if (ADT_GETPROP(adt, node, "extintrcfg-stride", &aic->extintrcfg_stride) < 0)
+    if (ADT_GETPROP(node, "extintrcfg-stride", &aic->extintrcfg_stride) < 0)
         aic->extintrcfg_stride = off - start_off;
-    if (ADT_GETPROP(adt, node, "intmaskset-stride", &aic->intmaskset_stride) < 0)
+    if (ADT_GETPROP(node, "intmaskset-stride", &aic->intmaskset_stride) < 0)
         aic->intmaskset_stride = off - start_off;
-    if (ADT_GETPROP(adt, node, "intmaskclear-stride", &aic->intmaskclear_stride) < 0)
+    if (ADT_GETPROP(node, "intmaskclear-stride", &aic->intmaskclear_stride) < 0)
         aic->intmaskclear_stride = off - start_off;
 
     aic->regs.reg_size = aic->regs.event + 4;
@@ -128,7 +128,7 @@ static int aic23_init(int version, int node)
            aic->intmaskclear_stride);
 
     u32 ext_intr_config_len;
-    const u8 *ext_intr_config = adt_getprop(adt, node, "aic-ext-intr-cfg", &ext_intr_config_len);
+    const u8 *ext_intr_config = adt_getprop(node, "aic-ext-intr-cfg", &ext_intr_config_len);
 
     if (ext_intr_config) {
         printf("AIC: Configuring %d external interrupts\n", ext_intr_config_len / 3);
@@ -149,25 +149,25 @@ static int aic23_init(int version, int node)
 void aic_init(void)
 {
     int path[8];
-    int node = adt_path_offset_trace(adt, "/arm-io/aic", path);
+    int node = adt_path_offset_trace("/arm-io/aic", path);
 
     if (node < 0) {
         printf("AIC node not found!\n");
         return;
     }
 
-    if (adt_is_compatible(adt, node, "aic,1")) {
+    if (adt_is_compatible(node, "aic,1")) {
         aic = &aic1;
-    } else if (adt_is_compatible(adt, node, "aic,2")) {
+    } else if (adt_is_compatible(node, "aic,2")) {
         aic = &aic2;
-    } else if (adt_is_compatible(adt, node, "aic,3")) {
+    } else if (adt_is_compatible(node, "aic,3")) {
         aic = &aic3;
     } else {
         printf("AIC: Error: Unsupported version\n");
         return;
     }
 
-    if (adt_get_reg(adt, path, "reg", 0, &aic->base, NULL)) {
+    if (adt_get_reg(path, "reg", 0, &aic->base, NULL)) {
         printf("Failed to get AIC reg property!\n");
         return;
     }

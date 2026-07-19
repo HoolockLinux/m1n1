@@ -154,7 +154,7 @@ struct sio_data *sio_setup_fwdata(const char *adt_path)
 
     siodata->iova_base = 0x30000;
 
-    int node = adt_path_offset(adt, adt_path);
+    int node = adt_path_offset(adt_path);
     if (node < 0) {
         printf("%s: missing node %s\n", __func__, adt_path);
         goto err;
@@ -171,7 +171,7 @@ struct sio_data *sio_setup_fwdata(const char *adt_path)
             continue;
         }
 
-        const u8 *adt_blob = adt_getprop(adt, node, rule->prop, &len);
+        const u8 *adt_blob = adt_getprop(node, rule->prop, &len);
         if (!adt_blob) {
             printf("%s: missing ADT property '%s'\n", __func__, rule->prop);
             goto err;

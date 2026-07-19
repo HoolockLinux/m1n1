@@ -339,7 +339,7 @@ static int dt_append_atc_fuses_helper(void *dt, int fdt_node, const struct atc_f
 static int dt_append_fuses(void *dt, int adt_node, int fdt_node, int port)
 {
     for (size_t i = 0; i < ARRAY_SIZE(atc_fuses); ++i) {
-        if (!adt_is_compatible_at(adt, adt_node, atc_fuses[i].compatible, 0))
+        if (!adt_is_compatible_at(adt_node, atc_fuses[i].compatible, 0))
             continue;
         if (atc_fuses[i].port >= 0 && port != atc_fuses[i].port)
             continue;
@@ -367,7 +367,7 @@ static int dt_append_atc_tunable(void *dt, int adt_node, int fdt_node,
 {
     u32 tunables_len;
     const struct atc_tunable *tunable_adt =
-        adt_getprop(adt, adt_node, tunable_info->adt_name, &tunables_len);
+        adt_getprop(adt_node, tunable_info->adt_name, &tunables_len);
 
     if (!tunable_adt) {
         printf("ADT: tunable %s not found\n", tunable_info->adt_name);
@@ -420,7 +420,7 @@ static void dt_copy_atc_tunables(void *dt, const char *adt_path, const char *dt_
     const struct adt_tunable_info *tunables;
     size_t tunable_count;
 
-    int adt_node = adt_path_offset(adt, adt_path);
+    int adt_node = adt_path_offset(adt_path);
     if (adt_node < 0)
         return;
 
@@ -443,7 +443,7 @@ static void dt_copy_atc_tunables(void *dt, const char *adt_path, const char *dt_
         goto cleanup;
     }
 
-    if (adt_is_compatible_at(adt, adt_node, "atc-phy,t8122", 0)) {
+    if (adt_is_compatible_at(adt_node, "atc-phy,t8122", 0)) {
         tunables = &atc_tunables_t8122[0];
         tunable_count = sizeof(atc_tunables_t8122) / sizeof(*atc_tunables_t8122);
     } else {

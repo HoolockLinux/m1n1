@@ -50,14 +50,14 @@ struct akf_dev {
 akf_dev_t *akf_init(const char *path)
 {
     int akf_path[8];
-    int node = adt_path_offset_trace(adt, path, akf_path);
+    int node = adt_path_offset_trace(path, akf_path);
     if (node < 0) {
         printf("akf: Error getting akf node %s\n", path);
         return NULL;
     }
 
     u64 base;
-    if (adt_get_reg(adt, akf_path, "reg", 0, &base, NULL) < 0) {
+    if (adt_get_reg(akf_path, "reg", 0, &base, NULL) < 0) {
         printf("akf: Error getting akf %s base address.\n", path);
         return NULL;
     }
@@ -67,9 +67,9 @@ akf_dev_t *akf_init(const char *path)
         return NULL;
 
     akf->cpu_base = base;
-    if (adt_is_compatible(adt, node, "iop,s5l8960x")) {
+    if (adt_is_compatible(node, "iop,s5l8960x")) {
         akf->base = base + AKF_V1_OFF;
-    } else if (adt_is_compatible(adt, node, "iop,s8000")) {
+    } else if (adt_is_compatible(node, "iop,s8000")) {
         akf->base = base + AKF_V2_OFF;
     } else {
         printf("akf: Unsupported compatible\n");
@@ -91,7 +91,7 @@ static bool akf_get_fw_region_new(int fw_node, u64 *phys, u64 *iova, u64 *size)
     const struct adt_segment_ranges *seg;
     u32 segments_len;
 
-    seg = adt_getprop(adt, fw_node, "segment-ranges", &segments_len);
+    seg = adt_getprop(fw_node, "segment-ranges", &segments_len);
     if (!seg) {
         printf("akf: No segment-ranges property\n");
         return false;
@@ -128,12 +128,12 @@ static bool akf_get_fw_region_new(int fw_node, u64 *phys, u64 *iova, u64 *size)
 /* Old style with region-base and region-size; iOS 10 */
 static bool akf_get_fw_region_old(int fw_node, u64 *phys, u64 *iova, u64 *size)
 {
-    if (ADT_GETPROP(adt, fw_node, "region-base", phys) < 0) {
+    if (ADT_GETPROP(fw_node, "region-base", phys) < 0) {
         printf("akf: Could not get region-base property\n");
         return false;
     }
 
-    if (ADT_GETPROP(adt, fw_node, "region-size", size) < 0) {
+    if (ADT_GETPROP(fw_node, "region-size", size) < 0) {
         printf("akf: Could not get region-size property\n");
         return false;
     }
@@ -148,14 +148,14 @@ static bool akf_get_fw_region_old(int fw_node, u64 *phys, u64 *iova, u64 *size)
 
 bool akf_map_preloaded_fw(akf_dev_t *akf)
 {
-    int fw_node = adt_first_child_offset(adt, akf->iop_node);
+    int fw_node = adt_first_child_offset(akf->iop_node);
     if (!fw_node) {
         printf("akf: IOP Firmware node not found\n");
         return false;
     }
 
     int pre_loaded;
-    if (ADT_GETPROP(adt, fw_node, "pre-loaded", &pre_loaded) < 0) {
+    if (ADT_GETPROP(fw_node, "pre-loaded", &pre_loaded) < 0) {
         printf("akf: Could not get pre-loaded property\n");
         return false;
     }

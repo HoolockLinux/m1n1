@@ -231,20 +231,20 @@ static u64 smp_get_iorvbar(int node, int cpu)
 {
     u64 cpu_impl_reg[2];
 
-    if (ADT_GETPROP_ARRAY(adt, node, "cpu-impl-reg", cpu_impl_reg) >= 0)
+    if (ADT_GETPROP_ARRAY(node, "cpu-impl-reg", cpu_impl_reg) >= 0)
         return cpu_impl_reg[0];
 
-    if (ADT_GETPROP(adt, node, "reg-private", &cpu_impl_reg[0]) >= 0)
+    if (ADT_GETPROP(node, "reg-private", &cpu_impl_reg[0]) >= 0)
         return (cpu_impl_reg[0] + 0x40000);
 
     int arm_io_node;
-    if ((arm_io_node = adt_path_offset(adt, "/arm-io")) < 0) {
+    if ((arm_io_node = adt_path_offset("/arm-io")) < 0) {
         printf("smp: Error getting /arm-io node\n");
         return 0;
     }
 
     u32 reg_len;
-    const u64 *regs = adt_getprop(adt, arm_io_node, "reg", &reg_len);
+    const u64 *regs = adt_getprop(arm_io_node, "reg", &reg_len);
     if (!regs)
         return 0;
     u32 index = 2 * cpu + 2;
@@ -260,16 +260,16 @@ void smp_start_secondaries(void)
 
     int pmgr_path[8];
 
-    if (adt_path_offset_trace(adt, "/arm-io/pmgr", pmgr_path) < 0) {
+    if (adt_path_offset_trace("/arm-io/pmgr", pmgr_path) < 0) {
         printf("Error getting /arm-io/pmgr node\n");
         return;
     }
-    if (adt_get_reg(adt, pmgr_path, "reg", 0, &pmgr_reg, NULL) < 0) {
+    if (adt_get_reg(pmgr_path, "reg", 0, &pmgr_reg, NULL) < 0) {
         printf("Error getting /arm-io/pmgr regs\n");
         return;
     }
 
-    int node = adt_path_offset(adt, "/cpus");
+    int node = adt_path_offset("/cpus");
     if (node < 0) {
         printf("Error getting /cpus node\n");
         return;
@@ -324,12 +324,12 @@ void smp_start_secondaries(void)
             return;
     }
 
-    ADT_FOREACH_CHILD(adt, node)
+    ADT_FOREACH_CHILD(node)
     {
         u32 cpu_id;
 
-        if (ADT_GETPROP(adt, node, "cpu-id", &cpu_id) < 0)
-            if (ADT_GETPROP(adt, node, "reg", &cpu_id) < 0)
+        if (ADT_GETPROP(node, "cpu-id", &cpu_id) < 0)
+            if (ADT_GETPROP(node, "reg", &cpu_id) < 0)
                 continue;
 
         if (cpu_id >= MAX_CPUS) {
@@ -349,7 +349,7 @@ void smp_start_secondaries(void)
             int cpu_node = cpu_nodes[i];
             if (!cpu_node)
                 continue;
-            const char *state = adt_getprop(adt, cpu_node, "state", NULL);
+            const char *state = adt_getprop(cpu_node, "state", NULL);
             if (!state)
                 continue;
             if (strcmp(state, "running") == 0) {
@@ -384,7 +384,7 @@ void smp_start_secondaries(void)
         if (!iorvbar)
             continue;
 
-        if (ADT_GETPROP(adt, cpu_node, "reg", &reg) < 0)
+        if (ADT_GETPROP(cpu_node, "reg", &reg) < 0)
             continue;
 
         if (i == boot_cpu_idx) {
@@ -422,7 +422,7 @@ void smp_stop_secondaries(bool deep_sleep)
         u32 reg;
         u64 iorvbar = smp_get_iorvbar(node, i);
 
-        if (ADT_GETPROP(adt, node, "reg", &reg) < 0)
+        if (ADT_GETPROP(node, "reg", &reg) < 0)
             continue;
 
         u8 core = FIELD_GET(CPU_REG_CORE, reg);

@@ -15,13 +15,13 @@ struct tunable_info {
 static int tunables_adt_find(const char *path, const char *prop, struct tunable_info *info,
                              u32 item_size)
 {
-    info->node_offset = adt_path_offset_trace(adt, path, info->node_path);
+    info->node_offset = adt_path_offset_trace(path, info->node_path);
     if (info->node_offset < 0) {
         printf("tunable: unable to find ADT node %s.\n", path);
         return -1;
     }
 
-    info->tunable_raw = adt_getprop(adt, info->node_offset, prop, &info->tunable_len);
+    info->tunable_raw = adt_getprop(info->node_offset, prop, &info->tunable_len);
     if (info->tunable_raw == NULL || info->tunable_len == 0) {
         printf("tunable: Error getting ADT node %s property %s .\n", path, prop);
         return -1;
@@ -57,7 +57,7 @@ int tunables_apply_global(const char *path, const char *prop)
         const struct tunable_global *tunable = &tunables[i];
 
         u64 addr;
-        if (adt_get_reg(adt, info.node_path, "reg", tunable->reg_idx, &addr, NULL) < 0) {
+        if (adt_get_reg(info.node_path, "reg", tunable->reg_idx, &addr, NULL) < 0) {
             printf("tunable: Error getting regs with index %d\n", tunable->reg_idx);
             return -1;
         }
@@ -115,7 +115,7 @@ int tunables_apply_local(const char *path, const char *prop, u32 reg_offset)
         return -1;
 
     u64 base;
-    if (adt_get_reg(adt, info.node_path, "reg", reg_offset, &base, NULL) < 0) {
+    if (adt_get_reg(info.node_path, "reg", reg_offset, &base, NULL) < 0) {
         printf("tunable: Error getting regs\n");
         return -1;
     }

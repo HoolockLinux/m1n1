@@ -173,14 +173,14 @@ const struct asc_ops t8015_ops = {
 asc_dev_t *asc_init(const char *path)
 {
     int asc_path[8];
-    int node = adt_path_offset_trace(adt, path, asc_path);
+    int node = adt_path_offset_trace(path, asc_path);
     if (node < 0) {
         printf("asc: Error getting ASC node %s\n", path);
         return NULL;
     }
 
     u64 base;
-    if (adt_get_reg(adt, asc_path, "reg", 0, &base, NULL) < 0) {
+    if (adt_get_reg(asc_path, "reg", 0, &base, NULL) < 0) {
         printf("asc: Error getting ASC %s base address.\n", path);
         return NULL;
     }
@@ -189,25 +189,25 @@ asc_dev_t *asc_init(const char *path)
     if (!asc)
         return NULL;
 
-    if (adt_is_compatible(adt, node, "iop-pmp,t8015") ||
-        adt_is_compatible(adt, node, "iop,t8015")) {
+    if (adt_is_compatible(node, "iop-pmp,t8015") ||
+        adt_is_compatible(node, "iop,t8015")) {
         // there is also a iop-gfx,t8015 but how that works is unknown
         asc->base = base + 0x8000;
         asc->ops = &t8015_ops;
 
-        if (adt_get_reg(adt, asc_path, "reg", 2, (u64 *)&asc->cpu_base, NULL) < 0)
+        if (adt_get_reg(asc_path, "reg", 2, (u64 *)&asc->cpu_base, NULL) < 0)
             asc->cpu_base = 0;
 
-    } else if (adt_is_compatible(adt, node, "iop-ans2,t8015")) {
+    } else if (adt_is_compatible(node, "iop-ans2,t8015")) {
         asc->base = base + 0x8000;
         asc->ops = &t8015_ans2_ops;
 
-        if (adt_get_reg(adt, asc_path, "reg", 1, (u64 *)&asc->cpu_base, NULL) < 0) {
+        if (adt_get_reg(asc_path, "reg", 1, (u64 *)&asc->cpu_base, NULL) < 0) {
             printf("asc: Error getting T8015 ANS2 %s CPU base address.\n", path);
             return NULL;
         }
-    } else if (adt_is_compatible(adt, node, "iop,ascwrap-v4") ||
-               adt_is_compatible(adt, node, "iop-sep,ascwrap-v4")) {
+    } else if (adt_is_compatible(node, "iop,ascwrap-v4") ||
+               adt_is_compatible(node, "iop-sep,ascwrap-v4")) {
         asc->cpu_base = base;
         asc->base = base + 0x8000;
         asc->ops = &ascwrap_v4_ops;
@@ -216,7 +216,7 @@ asc_dev_t *asc_init(const char *path)
         goto out_free;
     }
 
-    asc->iop_node = adt_first_child_offset(adt, node);
+    asc->iop_node = adt_first_child_offset(node);
 
     return asc;
 

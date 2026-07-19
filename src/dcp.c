@@ -27,7 +27,7 @@ static u32 dcp_die;
 
 static int dcp_hdmi_dptx_init(dcp_dev_t *dcp, const display_config_t *cfg)
 {
-    int node = adt_path_offset(adt, cfg->dp2hdmi_gpio);
+    int node = adt_path_offset(cfg->dp2hdmi_gpio);
     if (node < 0) {
         printf("dcp: failed to find dp2hdmi-gpio node '%s'\n", cfg->dp2hdmi_gpio);
         return -1;
@@ -35,12 +35,12 @@ static int dcp_hdmi_dptx_init(dcp_dev_t *dcp, const display_config_t *cfg)
     struct adt_function_smc_gpio dp2hdmi_pwr, hdmi_pwr;
 
     int err =
-        adt_getprop_copy(adt, node, "function-dp2hdmi_pwr_en", &dp2hdmi_pwr, sizeof(dp2hdmi_pwr));
+        adt_getprop_copy(node, "function-dp2hdmi_pwr_en", &dp2hdmi_pwr, sizeof(dp2hdmi_pwr));
     if (err < 0)
         printf("dcp: failed to get dp2hdmi_pwr_en gpio\n");
     else
         dcp->dp2hdmi_pwr_gpio = dp2hdmi_pwr.gpio;
-    err = adt_getprop_copy(adt, node, "function-hdmi_pwr_en", &hdmi_pwr, sizeof(hdmi_pwr));
+    err = adt_getprop_copy(node, "function-hdmi_pwr_en", &hdmi_pwr, sizeof(hdmi_pwr));
     if (err < 0)
         printf("dcp: failed to get hdmi_pwr_en gpio\n");
     else
@@ -109,21 +109,21 @@ int dcp_work(dcp_dev_t *dcp)
 static int dcp_create_firmware_mappings(const display_config_t *cfg, dcp_dev_t *dcp)
 {
     int created = 0;
-    int dcp_node = adt_path_offset(adt, cfg->dcp);
-    int node = adt_first_child_offset(adt, dcp_node);
+    int dcp_node = adt_path_offset(cfg->dcp);
+    int node = adt_first_child_offset(dcp_node);
     if (node < 0) {
         printf("dcp: iop-dcp*-nub not found!\n");
         return -1;
     }
 
     u64 asc_dram_mask;
-    if (ADT_GETPROP(adt, node, "asc-dram-mask", &asc_dram_mask) < 0)
+    if (ADT_GETPROP(node, "asc-dram-mask", &asc_dram_mask) < 0)
         asc_dram_mask = 0;
 
     const struct adt_segment_ranges *seg;
     u32 segments_len;
 
-    seg = adt_getprop(adt, node, "segment-ranges", &segments_len);
+    seg = adt_getprop(node, "segment-ranges", &segments_len);
     unsigned int count = segments_len / sizeof(*seg);
 
     for (unsigned int i = 0; i < count; i++) {
@@ -161,13 +161,13 @@ dcp_dev_t *dcp_init(const display_config_t *cfg)
         mdelay(25);
     }
 
-    int dart_node = adt_path_offset(adt, cfg->dcp_dart);
-    int node = adt_first_child_offset(adt, dart_node);
+    int dart_node = adt_path_offset(cfg->dcp_dart);
+    int node = adt_first_child_offset(dart_node);
     if (node < 0) {
         printf("dcp: mapper-dcp* not found!\n");
         return NULL;
     }
-    if (ADT_GETPROP(adt, node, "reg", &sid) < 0) {
+    if (ADT_GETPROP(node, "reg", &sid) < 0) {
         printf("dcp: failed to read dart stream ID!\n");
         return NULL;
     }

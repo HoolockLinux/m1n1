@@ -72,7 +72,7 @@ void get_notchless_fb(u64 *fb_base, u64 *fb_height)
     *fb_base = cur_boot_args.video.base;
     *fb_height = cur_boot_args.video.height;
 
-    int node = adt_path_offset(adt, "/product");
+    int node = adt_path_offset("/product");
 
     if (node < 0) {
         printf("FDT: /product node not found\n");
@@ -81,7 +81,7 @@ void get_notchless_fb(u64 *fb_base, u64 *fb_height)
 
     u32 val;
 
-    if ((ADT_GETPROP(adt, node, "partially-occluded-display", &val) < 0 || !val) &&
+    if ((ADT_GETPROP(node, "partially-occluded-display", &val) < 0 || !val) &&
         (chip_id != T8015 || (board_id != 0x6 && board_id != 0xe))) {
         printf("FDT: No notch detected\n");
         return;
@@ -132,7 +132,7 @@ static int dt_set_rng_seed_sep(int node)
 
 static int dt_set_rng_seed_adt(int node)
 {
-    int anode = adt_path_offset(adt, "/chosen");
+    int anode = adt_path_offset("/chosen");
 
     if (anode < 0)
         bail("ADT: /chosen not found\n");
@@ -140,7 +140,7 @@ static int dt_set_rng_seed_adt(int node)
     const uint8_t *random_seed;
     u32 seed_length;
 
-    random_seed = adt_getprop(adt, anode, "random-seed", &seed_length);
+    random_seed = adt_getprop(anode, "random-seed", &seed_length);
     if (random_seed) {
         printf("ADT: %d bytes of random seed available\n", seed_length);
 
@@ -353,7 +353,7 @@ static int dt_set_uboot_config(void)
 
 static int dt_set_memory(void)
 {
-    int anode = adt_path_offset(adt, "/chosen");
+    int anode = adt_path_offset("/chosen");
 
     if (anode < 0)
         bail("ADT: /chosen not found\n");
@@ -361,12 +361,12 @@ static int dt_set_memory(void)
     u64 dram_base = 0, dram_size = 0;
 
     // iOS 12 and below seems to be missing a bunch of stuff...
-    if (ADT_GETPROP(adt, anode, "dram-base", &dram_base) < 0) {
+    if (ADT_GETPROP(anode, "dram-base", &dram_base) < 0) {
         printf("ADT: Failed to get dram-base\n");
         dram_base = 0x800000000;
     }
 
-    if (ADT_GETPROP(adt, anode, "dram-size", &dram_size) < 0) {
+    if (ADT_GETPROP(anode, "dram-size", &dram_size) < 0) {
         printf("ADT: Failed to get dram-size\n");
         dram_size = mem_size_actual;
     }
@@ -459,7 +459,7 @@ static int dt_set_serial_number(void)
 {
 
     int fdt_root = fdt_path_offset(dt, "/");
-    int adt_root = adt_path_offset(adt, "/");
+    int adt_root = adt_path_offset("/");
 
     if (fdt_root < 0)
         bail("FDT: could not open a handle to FDT root.\n");
@@ -467,7 +467,7 @@ static int dt_set_serial_number(void)
         bail("ADT: could not open a handle to ADT root.\n");
 
     u32 sn_len;
-    const char *serial_number = adt_getprop(adt, adt_root, "serial-number", &sn_len);
+    const char *serial_number = adt_getprop(adt_root, "serial-number", &sn_len);
     if (fdt_setprop_string(dt, fdt_root, "serial-number", serial_number))
         bail("FDT: unable to set device serial number!\n");
     printf("FDT: reporting device serial number: %s\n", serial_number);
@@ -478,7 +478,7 @@ static int dt_set_serial_number(void)
 static int dt_set_smbios(void)
 {
     int fdt_root = fdt_path_offset(dt, "/");
-    int adt_root = adt_path_offset(adt, "/");
+    int adt_root = adt_path_offset("/");
     int len, node, smbios_node;
 
     if (fdt_root < 0)
@@ -499,15 +499,15 @@ static int dt_set_smbios(void)
     if (node < 0)
         bail("FDT: failed to add node 'system' to  '/smbios'\n");
 
-    const char *manuf = adt_getprop(adt, adt_root, "manufacturer", NULL);
+    const char *manuf = adt_getprop(adt_root, "manufacturer", NULL);
     if (!manuf)
         bail("ADT: failed to get manufacturer property\n");
     fdt_setprop_string(dt, node, "manufacturer", manuf);
-    const char *model = adt_getprop(adt, adt_root, "model", NULL);
+    const char *model = adt_getprop(adt_root, "model", NULL);
     if (!model)
         bail("ADT: failed to get model property\n");
     fdt_setprop_string(dt, node, "product", model);
-    const char *serial = adt_getprop(adt, adt_root, "serial-number", NULL);
+    const char *serial = adt_getprop(adt_root, "serial-number", NULL);
     if (!serial)
         bail("ADT: failed to get serial-number property\n");
     fdt_setprop_string(dt, node, "serial", serial);
@@ -516,7 +516,7 @@ static int dt_set_smbios(void)
     if (node < 0)
         bail("FDT: failed to add node 'baseboard' to  '/smbios'\n");
     fdt_setprop_string(dt, node, "manufacturer", manuf);
-    const char *target_type = adt_getprop(adt, 0, "target-type", NULL);
+    const char *target_type = adt_getprop(0, "target-type", NULL);
     if (!target_type)
         bail("ADT: failed to get target-type property\n");
     fdt_setprop_string(dt, node, "product", target_type);
@@ -781,7 +781,7 @@ static struct {
 
 static int dt_set_mac_addresses(void)
 {
-    int anode = adt_path_offset(adt, "/chosen");
+    int anode = adt_path_offset("/chosen");
 
     if (anode < 0)
         bail("ADT: /chosen not found\n");
@@ -791,7 +791,7 @@ static int dt_set_mac_addresses(void)
         snprintf(propname, sizeof(propname), "mac-address-%s", mac_address_devices[i].alias);
 
         uint8_t addr[6];
-        if (ADT_GETPROP_ARRAY(adt, anode, propname, addr) < 0)
+        if (ADT_GETPROP_ARRAY(anode, propname, addr) < 0)
             continue;
 
         if (mac_address_devices[i].swap) {
@@ -819,7 +819,7 @@ static int dt_set_mac_addresses(void)
 static int dt_set_bluetooth_cal(int anode, int node, const char *adt_name, const char *fdt_name)
 {
     u32 len;
-    const u8 *cal_blob = adt_getprop(adt, anode, adt_name, &len);
+    const u8 *cal_blob = adt_getprop(anode, adt_name, &len);
 
     if (!cal_blob || !len) {
         printf("ADT: Failed to get %s. Replaced module?\n", adt_name);
@@ -833,7 +833,7 @@ static int dt_set_bluetooth_cal(int anode, int node, const char *adt_name, const
 static int dt_set_bluetooth(void)
 {
     int ret;
-    int anode = adt_path_offset(adt, "/arm-io/bluetooth");
+    int anode = adt_path_offset("/arm-io/bluetooth");
 
     if (anode < 0) {
         /*
@@ -882,12 +882,12 @@ static int dt_set_multitouch(void)
     else
         return 0;
 
-    int anode = adt_path_offset(adt, adt_touchbar);
+    int anode = adt_path_offset(adt_touchbar);
     if (anode < 0)
         bail("ADT: touchbar node %s not found\n", adt_touchbar);
 
     u32 len;
-    const u8 *cal_blob = adt_getprop(adt, anode, "multi-touch-calibration", &len);
+    const u8 *cal_blob = adt_getprop(anode, "multi-touch-calibration", &len);
     if (!cal_blob || !len) {
         printf("ADT: Failed to get multi-touch-calibration from %s\n", adt_touchbar);
         return 0;
@@ -905,9 +905,9 @@ static int dt_set_ipd(void)
     if (chosen < 0)
         bail("FDT: /chosen node not found in devtree\n");
 
-    int ipd = adt_path_offset(adt, "/arm-io/spi3/ipd");
+    int ipd = adt_path_offset("/arm-io/spi3/ipd");
     if (ipd < 0)
-        ipd = adt_path_offset(adt, "/arm-io/dockchannel-mtp/mtp-transport/keyboard");
+        ipd = adt_path_offset("/arm-io/dockchannel-mtp/mtp-transport/keyboard");
 
     if (ipd < 0) {
         printf("ADT: no keyboard found\n");
@@ -915,7 +915,7 @@ static int dt_set_ipd(void)
     }
 
     u32 len;
-    const u8 *kblang = adt_getprop(adt, ipd, "kblang-calibration", &len);
+    const u8 *kblang = adt_getprop(ipd, "kblang-calibration", &len);
     if (!kblang || len < 2) {
         printf("ADT: kblang-calibration not found, no keyboard layout\n");
         return 0;
@@ -952,7 +952,7 @@ static int dt_set_nvram(void)
     int adt_path[8];
     u64 start, size;
 
-    int anode = adt_path_offset_trace(adt, "/arm-io/spi1/spinor/anvram", adt_path);
+    int anode = adt_path_offset_trace("/arm-io/spi1/spinor/anvram", adt_path);
     if (anode < 0) {
         printf("ADT: nvram partition not found\n");
         return 0;
@@ -963,7 +963,7 @@ static int dt_set_nvram(void)
         pp++;
     adt_path[pp + 1] = 0;
 
-    int ret = adt_get_reg(adt, adt_path, "reg", 0, &start, &size);
+    int ret = adt_get_reg(adt_path, "reg", 0, &start, &size);
     if (ret < 0) {
         printf("ADT: could not read nvram partition start/size\n");
         return 0;
@@ -997,7 +997,7 @@ static int dt_set_nvram(void)
 
 static int dt_set_wifi(void)
 {
-    int anode = adt_path_offset(adt, "/arm-io/wlan");
+    int anode = adt_path_offset("/arm-io/wlan");
 
     if (anode < 0) {
         /*
@@ -1009,7 +1009,7 @@ static int dt_set_wifi(void)
     }
 
     uint8_t info[16];
-    if (ADT_GETPROP_ARRAY(adt, anode, "wifi-antenna-sku-info", info) < 0)
+    if (ADT_GETPROP_ARRAY(anode, "wifi-antenna-sku-info", info) < 0)
         bail("ADT: Failed to get wifi-antenna-sku-info\n");
 
     const char *path = fdt_get_alias(dt, "wifi0");
@@ -1025,7 +1025,7 @@ static int dt_set_wifi(void)
     fdt_setprop_string(dt, node, "apple,antenna-sku", antenna);
 
     u32 len;
-    const u8 *cal_blob = adt_getprop(adt, anode, "wifi-calibration-msf", &len);
+    const u8 *cal_blob = adt_getprop(anode, "wifi-calibration-msf", &len);
 
     if (!cal_blob || !len) {
         printf("ADT: Failed to get wifi-calibration-msf. Replaced module?\n");
@@ -1142,7 +1142,7 @@ static int dt_append_acio_tunable(int adt_node, int fdt_node,
 {
     u32 tunables_len;
     const struct acio_tunable *tunable_adt =
-        adt_getprop(adt, adt_node, tunable_info->adt_name, &tunables_len);
+        adt_getprop(adt_node, tunable_info->adt_name, &tunables_len);
 
     if (!tunable_adt) {
         printf("ADT: tunable %s not found\n", tunable_info->adt_name);
@@ -1191,7 +1191,7 @@ static int dt_append_acio_tunable(int adt_node, int fdt_node,
 
 static int dt_copy_usb4_drom(const char *adt_path, const char *dt_alias)
 {
-    int adt_node = adt_path_offset(adt, adt_path);
+    int adt_node = adt_path_offset(adt_path);
     if (adt_node < 0)
         return -1;
 
@@ -1204,7 +1204,7 @@ static int dt_copy_usb4_drom(const char *adt_path, const char *dt_alias)
         bail("FDT: Unable to find path %s for alias %s\n", fdt_path, dt_alias);
 
     u32 drom_len;
-    const u8 *drom_blob = adt_getprop(adt, adt_node, "thunderbolt-drom", &drom_len);
+    const u8 *drom_blob = adt_getprop(adt_node, "thunderbolt-drom", &drom_len);
     if (!drom_blob || !drom_len)
         bail("ADT: Failed to get thunderbolt-drom\n");
 
@@ -1215,7 +1215,7 @@ static int dt_copy_acio_tunables(const char *adt_path, const char *dt_alias,
                                  const struct adt_tunable_info *tunables, size_t n_tunables)
 {
     int ret;
-    int adt_node = adt_path_offset(adt, adt_path);
+    int adt_node = adt_path_offset(adt_path);
     if (adt_node < 0)
         return -1;
 
@@ -1279,7 +1279,7 @@ static int dt_copy_ausb_tunable(int adt_node, int fdt_node, char *name)
 
     snprintf(fdt_name, 32, "apple,%s", name);
 
-    if (adt_getprop_copy(adt, adt_node, name, &cfg, sizeof(u32)) < 0)
+    if (adt_getprop_copy(adt_node, name, &cfg, sizeof(u32)) < 0)
         bail("ADT: Could not get cfg0-device property\n");
 
     if (fdt_setprop_u32(dt, fdt_node, fdt_name, cfg))
@@ -1298,7 +1298,7 @@ static int dt_set_ausb_tunables(void)
     if (fdt_node < 0)
         bail("FDT: Unable to find node for path %s from alias ausbphy0", fdt_path);
 
-    int adt_node = adt_path_offset(adt, "/arm-io/otgphyctrl");
+    int adt_node = adt_path_offset("/arm-io/otgphyctrl");
     if (adt_node < 0)
         bail("ADT: Could not get /arm-io/otgphyctrl path\n");
 
@@ -1333,7 +1333,7 @@ static const struct adt_tunable_info pciec_port_tunable = {
 static int dt_copy_pciec_tunables(const char *adt_path, const char *dt_alias)
 {
     int ret;
-    int adt_node = adt_path_offset(adt, adt_path);
+    int adt_node = adt_path_offset(adt_path);
 
     if (adt_node < 0)
         return -1;
@@ -1737,7 +1737,7 @@ static int dt_carveout_reserved_regions(const char *dcp_alias, const char *disp_
     if (ret)
         return ret;
 
-    int node = adt_path_offset(adt, "/chosen/carveout-memory-map");
+    int node = adt_path_offset("/chosen/carveout-memory-map");
     if (node < 0)
         bail("ADT: '/chosen/carveout-memory-map' not found\n");
 
@@ -1750,7 +1750,7 @@ static int dt_carveout_reserved_regions(const char *dcp_alias, const char *disp_
         struct disp_mapping *map = &maps[i];
         const char *name = map->region_adt;
 
-        ret = ADT_GETPROP_ARRAY(adt, node, name, phys_map);
+        ret = ADT_GETPROP_ARRAY(node, name, phys_map);
         if (ret != sizeof(phys_map))
             bail("ADT: could not get carveout memory '%s'\n", name);
         if (!phys_map[0] || !phys_map[1])
@@ -1779,7 +1779,7 @@ static int dt_vram_reserved_region(const char *dcp_alias, const char *disp_alias
     if (!fdt_get_alias(dt, dcp_alias))
         return 0;
 
-    int node = adt_path_offset_trace(adt, "/vram", adt_path);
+    int node = adt_path_offset_trace("/vram", adt_path);
 
     if (node < 0)
         bail("ADT: '/vram' not found\n");
@@ -1789,7 +1789,7 @@ static int dt_vram_reserved_region(const char *dcp_alias, const char *disp_alias
         pp++;
     adt_path[pp + 1] = 0;
 
-    ret = adt_get_reg(adt, adt_path, "reg", 0, &region.paddr, &region.size);
+    ret = adt_get_reg(adt_path, "reg", 0, &region.paddr, &region.size);
     if (ret < 0)
         bail("ADT: failed to read /vram/reg\n");
 
@@ -1808,9 +1808,9 @@ static int dt_reserve_asc_firmware(const char *adt_path, const char *adt_path_al
         return 0;
     }
 
-    int node = adt_path_offset(adt, adt_path);
+    int node = adt_path_offset(adt_path);
     if (node < 0 && adt_path_alt)
-        node = adt_path_offset(adt, adt_path_alt);
+        node = adt_path_offset(adt_path_alt);
     if (node < 0)
         bail("ADT: '%s' not found\n", adt_path);
 
@@ -1826,7 +1826,7 @@ static int dt_reserve_asc_firmware(const char *adt_path, const char *adt_path_al
     const struct adt_segment_ranges *seg;
     u32 segments_len;
 
-    seg = adt_getprop(adt, node, "segment-ranges", &segments_len);
+    seg = adt_getprop(node, "segment-ranges", &segments_len);
     unsigned int num_maps = segments_len / sizeof(*seg);
 
     for (unsigned i = 0; i < num_maps; i++) {
@@ -1877,7 +1877,7 @@ static int dt_reserve_dcpext_firmware(void)
                  dcpext_alias);
         adt_path[sizeof(adt_path) - 1] = '\0';
 
-        if (adt_path_offset(adt, adt_path) < 0)
+        if (adt_path_offset(adt_path) < 0)
             continue;
 
         int dcpext_node = fdt_path_offset(dt, dcpext_alias);
@@ -2084,19 +2084,19 @@ static int dt_set_pmp(void)
         printf("FDT: pmp not found in devtree\n");
         return 0;
     }
-    int chosen_anode = adt_path_offset(adt, "/chosen");
+    int chosen_anode = adt_path_offset("/chosen");
     if (chosen_anode < 0)
         bail("ADT: /chosen not found \n");
-    int pmp_iop_anode = adt_path_offset(adt, "/arm-io/pmp/iop-pmp-nub");
+    int pmp_iop_anode = adt_path_offset("/arm-io/pmp/iop-pmp-nub");
     if (pmp_iop_anode < 0)
         bail("ADT: /arm-io/pmp/iop-pmp-nub not found \n");
 
     u32 board_id, dram_vendor_id, dram_capacity = 0xFFFFFFFF;
-    if (ADT_GETPROP(adt, chosen_anode, "board-id", &board_id) < 0)
+    if (ADT_GETPROP(chosen_anode, "board-id", &board_id) < 0)
         bail("ADT: failed to get board id\n");
-    if (ADT_GETPROP(adt, chosen_anode, "dram-vendor-id", &dram_vendor_id) < 0)
+    if (ADT_GETPROP(chosen_anode, "dram-vendor-id", &dram_vendor_id) < 0)
         bail("ADT: failed to get dram vendor id\n");
-    ADT_GETPROP(adt, pmp_iop_anode, "dram-capacity", &dram_capacity);
+    ADT_GETPROP(pmp_iop_anode, "dram-capacity", &dram_capacity);
 
     if (fdt_setprop_u32(dt, pmp_node, "apple,board-id", board_id))
         bail("FDT: failed to set board id\n");
@@ -2106,7 +2106,7 @@ static int dt_set_pmp(void)
         fdt_setprop_u32(dt, pmp_node, "apple,dram-capacity", dram_capacity))
         bail("FDT: failed to set dram capacity\n");
 
-    ADT_FOREACH_PROPERTY(adt, pmp_iop_anode, prop)
+    ADT_FOREACH_PROPERTY(pmp_iop_anode, prop)
     {
         if (skip_pmp_prop(prop->name))
             continue;
@@ -2128,12 +2128,12 @@ static int dt_set_sep(void)
         return 0;
     }
 
-    int anode_mmap = adt_path_offset(adt, "/chosen/memory-map");
+    int anode_mmap = adt_path_offset("/chosen/memory-map");
     if (anode_mmap < 0)
         bail("ADT: /chosen/memory-map not found \n");
 
     u64 phys_map[2];
-    size_t ret = ADT_GETPROP_ARRAY(adt, anode_mmap, "SEPFW", phys_map);
+    size_t ret = ADT_GETPROP_ARRAY(anode_mmap, "SEPFW", phys_map);
     if (ret != sizeof(phys_map))
         bail("ADT: could not get sepfw memory\n");
 
@@ -2152,16 +2152,16 @@ static int dt_set_sep(void)
     if (node < 0)
         bail("FDT: sep not not found in devtree\n");
 
-    int anode_manifest = adt_path_offset(adt, "/chosen/boot-object-manifests");
+    int anode_manifest = adt_path_offset("/chosen/boot-object-manifests");
     if (anode_manifest < 0)
         bail("ADT: /chosen/boot-object-manifests not found \n");
 
-    ret = ADT_GETPROP_ARRAY(adt, anode_manifest, "lpol", phys_map);
+    ret = ADT_GETPROP_ARRAY(anode_manifest, "lpol", phys_map);
     if (ret != sizeof(phys_map))
         bail("ADT: could not get local policy\n");
     fdt_setprop(dt, node, "local-policy-manifest", (void *)phys_map[0], phys_map[1]);
 
-    ret = ADT_GETPROP_ARRAY(adt, anode_manifest, "ibot", phys_map);
+    ret = ADT_GETPROP_ARRAY(anode_manifest, "ibot", phys_map);
     if (ret != sizeof(phys_map))
         bail("ADT: could not get iboot manifest\n");
     fdt_setprop(dt, node, "iboot-manifest", (void *)phys_map[0], phys_map[1]);
@@ -2188,7 +2188,7 @@ static int dt_set_smc(void)
     if (fdt_node_check_compatible(dt, reboot_node, "apple,t8015-smc-reboot"))
         return 0;
 
-    if (!(region = adt_getprop(adt, 0, "region-info", NULL))) {
+    if (!(region = adt_getprop(0, "region-info", NULL))) {
         printf("ADT: could not get region-info\n");
         return 0;
     }
@@ -2345,9 +2345,9 @@ static int dt_set_isp_fwdata(void)
         return 0;
     }
 
-    int adt_node = adt_path_offset(adt, "/arm-io/isp");
+    int adt_node = adt_path_offset("/arm-io/isp");
     if (adt_node < 0)
-        adt_node = adt_path_offset(adt, "/arm-io/isp0");
+        adt_node = adt_path_offset("/arm-io/isp0");
     if (adt_node < 0)
         return 0;
 
@@ -2384,7 +2384,7 @@ static int dt_disable_missing_devs(const char *adt_prefix, const char *dt_prefix
         bail_cleanup("FDT: out of memory\n");
 
     int path[8];
-    int node = adt_path_offset_trace(adt, "/arm-io", path);
+    int node = adt_path_offset_trace("/arm-io", path);
     if (node < 0)
         bail_cleanup("ADT: /arm-io not found\n");
 
@@ -2394,7 +2394,7 @@ static int dt_disable_missing_devs(const char *adt_prefix, const char *dt_prefix
     path[pp + 1] = 0;
 
     u32 die_count;
-    if (ADT_GETPROP(adt, node, "die-count", &die_count) < 0) {
+    if (ADT_GETPROP(node, "die-count", &die_count) < 0) {
         die_count = 1;
     }
     if (die_count > 8) {
@@ -2403,14 +2403,14 @@ static int dt_disable_missing_devs(const char *adt_prefix, const char *dt_prefix
     }
 
     /* Find ADT registers */
-    ADT_FOREACH_CHILD(adt, node)
+    ADT_FOREACH_CHILD(node)
     {
-        const char *name = adt_get_name(adt, node);
+        const char *name = adt_get_name(node);
         if (strncmp(name, adt_prefix, adt_prefix_len))
             continue;
 
         path[pp] = node;
-        if (adt_get_reg(adt, path, "reg", 0, &addrs[acnt++], NULL) < 0)
+        if (adt_get_reg(path, "reg", 0, &addrs[acnt++], NULL) < 0)
             bail_cleanup("Error getting /arm-io/%s regs\n", name);
     }
 
@@ -2577,7 +2577,7 @@ err:
 __attribute__((unused)) static int dt_transfer_virtios(void)
 {
     int path[3];
-    path[0] = adt_path_offset(adt, "/arm-io/");
+    path[0] = adt_path_offset("/arm-io/");
     if (path[0] < 0)
         bail("ADT: /arm-io not found\n");
 
@@ -2601,17 +2601,17 @@ __attribute__((unused)) static int dt_transfer_virtios(void)
         char name[16], fullname[32];
         snprintf(name, sizeof(name) - 1, "virtio%d", i);
 
-        path[1] = adt_subnode_offset(adt, path[0], name);
+        path[1] = adt_subnode_offset(path[0], name);
         if (path[1] < 0)
             break;
         path[2] = 0;
 
         u64 addr, size;
-        if (adt_get_reg(adt, path, "reg", 0, &addr, &size) < 0)
+        if (adt_get_reg(path, "reg", 0, &addr, &size) < 0)
             bail("ADT: error getting /arm-io/%s regs\n", name);
 
         u32 irq;
-        ADT_GETPROP(adt, path[1], "interrupts", &irq);
+        ADT_GETPROP(path[1], "interrupts", &irq);
 
         snprintf(fullname, sizeof(fullname) - 1, "virtio@%lx", addr);
         printf("FDT: Adding %s found in ADT\n", name);

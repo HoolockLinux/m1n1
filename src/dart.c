@@ -277,14 +277,14 @@ error:
 dart_dev_t *dart_init_adt(const char *path, int instance, int device, bool keep_pts)
 {
     int dart_path[8];
-    int node = adt_path_offset_trace(adt, path, dart_path);
+    int node = adt_path_offset_trace(path, dart_path);
     if (node < 0) {
         printf("dart: Error getting DART node %s\n", path);
         return NULL;
     }
 
     u64 base;
-    if (adt_get_reg(adt, dart_path, "reg", instance, &base, NULL) < 0) {
+    if (adt_get_reg(dart_path, "reg", instance, &base, NULL) < 0) {
         printf("dart: Error getting DART %s base address.\n", path);
         return NULL;
     }
@@ -292,13 +292,13 @@ dart_dev_t *dart_init_adt(const char *path, int instance, int device, bool keep_
     enum dart_type_t type;
     const char *type_s;
 
-    if (adt_is_compatible(adt, node, "dart,t8020")) {
+    if (adt_is_compatible(node, "dart,t8020")) {
         type = DART_T8020;
         type_s = "t8020";
-    } else if (adt_is_compatible(adt, node, "dart,t6000")) {
+    } else if (adt_is_compatible(node, "dart,t6000")) {
         type = DART_T6000;
         type_s = "t6000";
-    } else if (adt_is_compatible(adt, node, "dart,t8110")) {
+    } else if (adt_is_compatible(node, "dart,t8110")) {
         type = DART_T8110;
         type_s = "t8110";
     } else {
@@ -314,14 +314,14 @@ dart_dev_t *dart_init_adt(const char *path, int instance, int device, bool keep_
     printf("dart: dart %s at 0x%lx is a %s%s\n", path, base, type_s,
            dart->locked ? " (locked)" : "");
 
-    if (adt_getprop(adt, node, "real-time", NULL)) {
+    if (adt_getprop(node, "real-time", NULL)) {
         for (int i = 0; i < dart->params->ttbr_count; i++) {
             printf("dart: dart %s.%d.%d L1 %d is real-time at %p\n", path, instance, device, i,
                    dart->l1[i]);
         }
     }
     u32 len;
-    const void *prop = adt_getprop(adt, node, "vm-base", &len);
+    const void *prop = adt_getprop(node, "vm-base", &len);
     if (prop) {
         if (len == sizeof(u32)) {
             u32 tmp;
@@ -344,22 +344,22 @@ dart_dev_t *dart_init_adt(const char *path, int instance, int device, bool keep_
 void dart_lock_adt(const char *path, int instance)
 {
     int dart_path[8];
-    int node = adt_path_offset_trace(adt, path, dart_path);
+    int node = adt_path_offset_trace(path, dart_path);
     if (node < 0) {
         printf("dart: Error getting DART node %s\n", path);
         return;
     }
 
     u64 base;
-    if (adt_get_reg(adt, dart_path, "reg", instance, &base, NULL) < 0) {
+    if (adt_get_reg(dart_path, "reg", instance, &base, NULL) < 0) {
         printf("dart: Error getting DART %s base address.\n", path);
         return;
     }
 
-    if (adt_is_compatible(adt, node, "dart,t8020") || adt_is_compatible(adt, node, "dart,t6000")) {
+    if (adt_is_compatible(node, "dart,t8020") || adt_is_compatible(node, "dart,t6000")) {
         if (!(read32(base + DART_T8020_CONFIG) & DART_T8020_CONFIG_LOCK))
             set32(base + DART_T8020_CONFIG, DART_T8020_CONFIG_LOCK);
-    } else if (adt_is_compatible(adt, node, "dart,t8110")) {
+    } else if (adt_is_compatible(node, "dart,t8110")) {
         if (!(read32(base + DART_T8110_PROTECT) & DART_T8110_PROTECT_TTBR_TCR))
             set32(base + DART_T8110_PROTECT, DART_T8110_PROTECT_TTBR_TCR);
     } else {
@@ -410,7 +410,7 @@ dart_dev_t *dart_init_fdt(void *dt, u32 phandle, int device, bool keep_pts)
 
 int dart_setup_pt_region(dart_dev_t *dart, const char *path, int device, u64 vm_base)
 {
-    int node = adt_path_offset(adt, path);
+    int node = adt_path_offset(path);
     if (node < 0) {
         printf("dart: Error getting DART node %s\n", path);
         return -1;
@@ -420,7 +420,7 @@ int dart_setup_pt_region(dart_dev_t *dart, const char *path, int device, u64 vm_
     char l2_tt_str[24];
     snprintf(l2_tt_str, sizeof(l2_tt_str), "l2-tt-%d", device);
 
-    const struct adt_property *pt_region = adt_get_property(adt, node, pt_region_str);
+    const struct adt_property *pt_region = adt_get_property(node, pt_region_str);
     if (pt_region && pt_region->size == 16) {
         u64 region[2];
         memcpy(region, pt_region->value, sizeof(region));
@@ -481,7 +481,7 @@ int dart_setup_pt_region(dart_dev_t *dart, const char *path, int device, u64 vm_
         }
 
         u64 l2_tt[2] = {region[0], 2};
-        int ret = adt_setprop(adt, node, l2_tt_str, &l2_tt, sizeof(l2_tt));
+        int ret = adt_setprop(node, l2_tt_str, &l2_tt, sizeof(l2_tt));
         if (ret < 0) {
             printf("dart: failed to update '%s/%s'\n", path, l2_tt_str);
         }

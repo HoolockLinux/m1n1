@@ -14,14 +14,14 @@ static u64 wdt_base = 0;
 void wdt_disable(void)
 {
     int path[8];
-    int node = adt_path_offset_trace(adt, "/arm-io/wdt", path);
+    int node = adt_path_offset_trace("/arm-io/wdt", path);
 
     if (node < 0) {
         printf("WDT node not found!\n");
         return;
     }
 
-    if (adt_get_reg(adt, path, "reg", 0, &wdt_base, NULL)) {
+    if (adt_get_reg(path, "reg", 0, &wdt_base, NULL)) {
         printf("Failed to get WDT reg property!\n");
         return;
     }
@@ -32,12 +32,12 @@ void wdt_disable(void)
 
     // disable secondary watchdog if wdt-version is 2 or 3
     u32 wdt_version;
-    if (ADT_GETPROP(adt, node, "wdt-version", &wdt_version) < 0)
+    if (ADT_GETPROP(node, "wdt-version", &wdt_version) < 0)
         return;
 
     if (wdt_version == 2 || wdt_version == 3) {
         u64 wdt_2nd = 0;
-        if (adt_get_reg(adt, path, "reg", 2, &wdt_2nd, NULL)) {
+        if (adt_get_reg(path, "reg", 2, &wdt_2nd, NULL)) {
             printf("Failed to get WDT reg[2] property!\n");
             return;
         }

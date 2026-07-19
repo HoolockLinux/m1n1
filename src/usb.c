@@ -73,14 +73,14 @@ static dart_dev_t *usb_dart_init(u32 idx)
     char path[sizeof(FMT_DART_MAPPER_PATH)];
 
     snprintf(path, sizeof(path), FMT_DART_MAPPER_PATH, idx, idx);
-    mapper_offset = adt_path_offset(adt, path);
+    mapper_offset = adt_path_offset(path);
     if (mapper_offset < 0) {
         // Device not present
         return NULL;
     }
 
     u32 dart_idx;
-    if (ADT_GETPROP(adt, mapper_offset, "reg", &dart_idx) < 0) {
+    if (ADT_GETPROP(mapper_offset, "reg", &dart_idx) < 0) {
         printf("usb: Error getting DART %s device index/\n", path);
         return NULL;
     }
@@ -99,28 +99,28 @@ static int usb_drd_get_regs(u32 idx, struct usb_drd_regs *regs)
     char drd_path[sizeof(FMT_DRD_PATH)];
 
     snprintf(drd_path, sizeof(drd_path), FMT_DRD_PATH, idx);
-    adt_drd_offset = adt_path_offset_trace(adt, drd_path, adt_drd_path);
+    adt_drd_offset = adt_path_offset_trace(drd_path, adt_drd_path);
     if (adt_drd_offset < 0) {
         // Nonexistent device
         return -1;
     }
 
     snprintf(phy_path, sizeof(phy_path), FMT_ATC_PATH, idx);
-    adt_phy_offset = adt_path_offset_trace(adt, phy_path, adt_phy_path);
+    adt_phy_offset = adt_path_offset_trace(phy_path, adt_phy_path);
     if (adt_phy_offset < 0) {
         printf("usb: Error getting phy node %s\n", phy_path);
         return -1;
     }
 
-    if (adt_get_reg(adt, adt_phy_path, "reg", 0, &regs->atc, NULL) < 0) {
+    if (adt_get_reg(adt_phy_path, "reg", 0, &regs->atc, NULL) < 0) {
         printf("usb: Error getting reg with index 0 for %s.\n", phy_path);
         return -1;
     }
-    if (adt_get_reg(adt, adt_drd_path, "reg", 0, &regs->drd_regs, NULL) < 0) {
+    if (adt_get_reg(adt_drd_path, "reg", 0, &regs->drd_regs, NULL) < 0) {
         printf("usb: Error getting reg with index 0 for %s.\n", drd_path);
         return -1;
     }
-    if (adt_get_reg(adt, adt_drd_path, "reg", 3, &regs->drd_regs_unk3, NULL) < 0) {
+    if (adt_get_reg(adt_drd_path, "reg", 3, &regs->drd_regs_unk3, NULL) < 0) {
         printf("usb: Error getting reg with index 3 for %s.\n", drd_path);
         return -1;
     }
@@ -270,18 +270,18 @@ static int usb_init_i2c(const char *i2c_path)
 {
     char hpm_path[MAX_HPM_PATH_LEN];
 
-    int node = adt_path_offset(adt, i2c_path);
+    int node = adt_path_offset(i2c_path);
     if (node < 0)
         return 0;
 
-    node = adt_first_child_offset(adt, node);
+    node = adt_first_child_offset(node);
     if (node < 0)
         return 0;
 
-    if (!adt_is_compatible(adt, node, "usbc,manager"))
+    if (!adt_is_compatible(node, "usbc,manager"))
         return 0;
 
-    const char *hpm_mngr_name = adt_get_name(adt, node);
+    const char *hpm_mngr_name = adt_get_name(node);
     if (!hpm_mngr_name || strnlen(hpm_mngr_name, 16) >= 16)
         return 0;
 
@@ -291,9 +291,9 @@ static int usb_init_i2c(const char *i2c_path)
         return -1;
     }
 
-    ADT_FOREACH_CHILD(adt, node)
+    ADT_FOREACH_CHILD(node)
     {
-        const char *name = adt_get_name(adt, node);
+        const char *name = adt_get_name(node);
         if (!name || memcmp(name, "hpm", 3) || name[4] != '\0')
             continue; // unexpected hpm node name
         u32 idx = name[3] - '0';
@@ -404,12 +404,12 @@ int usb_complex_init_adt(void)
     enum usb_complex_type type;
     u64 USBComplexBase, USB2Phy_Base = 0, DWC2Base;
 
-    usbComplex_offset = adt_path_offset_trace(adt, "/arm-io/usb-complex", usbComplex_path);
+    usbComplex_offset = adt_path_offset_trace("/arm-io/usb-complex", usbComplex_path);
 
     if (usbComplex_offset < 0)
         return -1;
 
-    otgctl_offset = adt_path_offset_trace(adt, "/arm-io/otgphyctrl", otgphyctrl_path);
+    otgctl_offset = adt_path_offset_trace("/arm-io/otgphyctrl", otgphyctrl_path);
     if (otgctl_offset < 0) {
         printf("usb: No /arm-io/otgphyctrl node \n");
         return -1;
@@ -417,7 +417,7 @@ int usb_complex_init_adt(void)
 
     for (uint32_t i = 0, max = 2; i < max; ++i) {
         u64 ctlsize, ctlbase;
-        if (adt_get_reg(adt, otgphyctrl_path, "reg", i, &ctlbase, &ctlsize) < 0) {
+        if (adt_get_reg(otgphyctrl_path, "reg", i, &ctlbase, &ctlsize) < 0) {
             printf("usb: failed to get /arm-io/otgphyctrl reg\n");
             return -1;
         }
@@ -432,17 +432,17 @@ int usb_complex_init_adt(void)
         return -1;
     }
 
-    if (adt_get_reg(adt, usbComplex_path, "reg", 0, &USBComplexBase, NULL) < 0) {
+    if (adt_get_reg(usbComplex_path, "reg", 0, &USBComplexBase, NULL) < 0) {
         printf("usb: Error getting USBComplexBase Reg\n");
         return -1;
     }
 
     u32 cfg0, cfg1;
-    if (ADT_GETPROP(adt, otgctl_offset, "cfg0-device", &cfg0) < 0) {
+    if (ADT_GETPROP(otgctl_offset, "cfg0-device", &cfg0) < 0) {
         printf("usb: Error getting CFG0 from otgctl \n");
         return -1;
     }
-    if (ADT_GETPROP(adt, otgctl_offset, "cfg1-device", &cfg1) < 0) {
+    if (ADT_GETPROP(otgctl_offset, "cfg1-device", &cfg1) < 0) {
         printf("usb: Error getting CFG1 from otgctl \n");
         return -1;
     }
@@ -450,13 +450,13 @@ int usb_complex_init_adt(void)
     // the usb-device on iPad Pro 2 is some USB3 device so derive dwc2 base from phy base instead
     DWC2Base = (USB2Phy_Base & ~0xfffULL) + 0x100000;
 
-    if (adt_is_compatible(adt, usbComplex_offset, "usb-complex,s5l8960x")) {
+    if (adt_is_compatible(usbComplex_offset, "usb-complex,s5l8960x")) {
         type = USBCOMPLEX_S5L8960X;
-    } else if (adt_is_compatible(adt, usbComplex_offset, "usb-complex,t8015")) {
+    } else if (adt_is_compatible(usbComplex_offset, "usb-complex,t8015")) {
         type = USBCOMPLEX_T8015;
     }
     // This must be last because of the fallback compatible to usb-complex,t8011 on t8015
-    else if (adt_is_compatible(adt, usbComplex_offset, "usb-complex,t8011")) {
+    else if (adt_is_compatible(usbComplex_offset, "usb-complex,t8011")) {
         type = USBCOMPLEX_T8011;
     } else {
         printf("usb: unsupported USB complex type!\n");
@@ -494,7 +494,7 @@ void usb_init(void)
      * M3/M4 models do not use i2c, but instead SPMI with a new controller.
      * We can get USB going for now by just bringing up the phys.
      */
-    if (adt_path_offset(adt, "/arm-io/nub-spmi-a0/hpm0") > 0) {
+    if (adt_path_offset("/arm-io/nub-spmi-a0/hpm0") > 0) {
         usb_spmi_init();
         return;
     }
@@ -503,13 +503,13 @@ void usb_init(void)
      * A7-A11 uses a custom internal otg phy with the peripheral part
      * being dwc2, role switch seems custom.
      */
-    if (adt_path_offset(adt, "/arm-io/otgphyctrl") > 0 &&
-        adt_path_offset(adt, "/arm-io/usb-complex") > 0) {
+    if (adt_path_offset("/arm-io/otgphyctrl") > 0 &&
+        adt_path_offset("/arm-io/usb-complex") > 0) {
         usb_complex_init_adt();
         return;
     }
 
-    if (adt_is_compatible(adt, 0, "J180dAP") && usb_init_i2c("/arm-io/i2c3") < 0)
+    if (adt_is_compatible(0, "J180dAP") && usb_init_i2c("/arm-io/i2c3") < 0)
         return;
     if (usb_init_i2c("/arm-io/i2c0") < 0)
         return;
@@ -524,18 +524,18 @@ void usb_i2c_restore_irqs(const char *i2c_path, bool force)
 {
     char hpm_path[MAX_HPM_PATH_LEN];
 
-    int node = adt_path_offset(adt, i2c_path);
+    int node = adt_path_offset(i2c_path);
     if (node < 0)
         return;
 
-    node = adt_first_child_offset(adt, node);
+    node = adt_first_child_offset(node);
     if (node < 0)
         return;
 
-    if (!adt_is_compatible(adt, node, "usbc,manager"))
+    if (!adt_is_compatible(node, "usbc,manager"))
         return;
 
-    const char *hpm_mngr_name = adt_get_name(adt, node);
+    const char *hpm_mngr_name = adt_get_name(node);
     if (!hpm_mngr_name || strnlen(hpm_mngr_name, 16) >= 16)
         return;
 
@@ -545,9 +545,9 @@ void usb_i2c_restore_irqs(const char *i2c_path, bool force)
         return;
     }
 
-    ADT_FOREACH_CHILD(adt, node)
+    ADT_FOREACH_CHILD(node)
     {
-        const char *name = adt_get_name(adt, node);
+        const char *name = adt_get_name(node);
         if (!name || memcmp(name, "hpm", 3) || name[4] != '\0')
             continue; // unexpected hpm node name
         u32 idx = name[3] - '0';
@@ -578,25 +578,25 @@ void usb_hpm_restore_irqs(bool force)
     /*
      * Do not try to restore irqs on M3/M4 which don't use i2c
      */
-    if (adt_path_offset(adt, "/arm-io/nub-spmi-a0/hpm0") > 0)
+    if (adt_path_offset("/arm-io/nub-spmi-a0/hpm0") > 0)
         return;
 
     /*
      * Do not try to restore irqs on A7-A11 which don't use i2c
      */
-    if (adt_path_offset(adt, "/arm-io/otgphyctrl") > 0 &&
-        adt_path_offset(adt, "/arm-io/usb-complex") > 0)
+    if (adt_path_offset("/arm-io/otgphyctrl") > 0 &&
+        adt_path_offset("/arm-io/usb-complex") > 0)
         return;
 
-    if (adt_is_compatible(adt, 0, "J180dAP"))
+    if (adt_is_compatible(0, "J180dAP"))
         usb_i2c_restore_irqs("/arm-io/i2c3", force);
     usb_i2c_restore_irqs("/arm-io/i2c0", force);
 }
 
 void usb_iodev_init(void)
 {
-    if (adt_path_offset(adt, "/arm-io/otgphyctrl") > 0 &&
-        adt_path_offset(adt, "/arm-io/usb-complex") > 0) {
+    if (adt_path_offset("/arm-io/otgphyctrl") > 0 &&
+        adt_path_offset("/arm-io/usb-complex") > 0) {
         return; // already init in usb_init() since we do have only 1 usb port
     }
     for (int i = FIRST_USB_IODEV; i < USB_IODEV_COUNT; i++) {

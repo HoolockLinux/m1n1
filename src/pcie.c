@@ -249,47 +249,47 @@ static int pcie_init_controller(int controller, const char *path)
     state->initialized = false;
     state->num_phys = 1;
 
-    adt_offset = adt_path_offset_trace(adt, path, adt_path);
+    adt_offset = adt_path_offset_trace(path, adt_path);
     if (adt_offset < 0) {
         printf("pcie: Error getting node %s\n", path);
         return -1;
     }
 
-    if (adt_is_compatible(adt, adt_offset, "apcie,t8103")) {
+    if (adt_is_compatible(adt_offset, "apcie,t8103")) {
         fuse_bits = pcie_fuse_bits_t8103;
         state->pcie_regs = &regs_t8xxx_t600x;
         printf("pcie: Initializing t8103 PCIe controller\n");
-    } else if (adt_is_compatible(adt, adt_offset, "apcie,t6000")) {
+    } else if (adt_is_compatible(adt_offset, "apcie,t6000")) {
         fuse_bits = pcie_fuse_bits_t6000;
         state->pcie_regs = &regs_t8xxx_t600x;
         printf("pcie: Initializing t6000 PCIe controller\n");
-    } else if (adt_is_compatible(adt, adt_offset, "apcie,t8112")) {
+    } else if (adt_is_compatible(adt_offset, "apcie,t8112")) {
         fuse_bits = pcie_fuse_bits_t8112;
         state->pcie_regs = &regs_t8xxx_t600x;
         printf("pcie: Initializing t8112 PCIe controller\n");
-    } else if (adt_is_compatible(adt, adt_offset, "apcie,t8122")) {
+    } else if (adt_is_compatible(adt_offset, "apcie,t8122")) {
         fuse_bits = NULL;
         state->pcie_regs = &regs_t8122;
         printf("pcie: Initializing t8122 PCIe controller\n");
-    } else if (adt_is_compatible(adt, adt_offset, "apcie,t6030")) {
+    } else if (adt_is_compatible(adt_offset, "apcie,t6030")) {
         fuse_bits = NULL;
         state->pcie_regs = &regs_t8122;
         printf("pcie: Initializing t6030 PCIe controller\n");
-    } else if (adt_is_compatible(adt, adt_offset, "apcie,t6020")) {
+    } else if (adt_is_compatible(adt_offset, "apcie,t6020")) {
         fuse_bits = NULL;
         state->pcie_regs = &regs_t602x;
         printf("pcie: Initializing t6020 PCIe controller\n");
-    } else if (adt_is_compatible(adt, adt_offset, "apcie,t6031")) {
+    } else if (adt_is_compatible(adt_offset, "apcie,t6031")) {
         fuse_bits = NULL;
         state->pcie_regs = &regs_t6031;
         printf("pcie: Initializing t6031 PCIe controller\n");
-    } else if (adt_is_compatible(adt, adt_offset, "apcie-ge,t6020")) {
+    } else if (adt_is_compatible(adt_offset, "apcie-ge,t6020")) {
         u32 lane_cfg;
         fuse_bits = NULL;
         state->pcie_regs = &regs_t602x;
 
         printf("pcie: Initializing t6020 PCIe GE controller\n");
-        if (ADT_GETPROP(adt, adt_offset, "lane-cfg", &lane_cfg) < 0) {
+        if (ADT_GETPROP(adt_offset, "lane-cfg", &lane_cfg) < 0) {
             printf("pcie: Error getting lane_cfg for %s\n", path);
             return -1;
         }
@@ -313,30 +313,30 @@ static int pcie_init_controller(int controller, const char *path)
         return -1;
     }
 
-    if (ADT_GETPROP(adt, adt_offset, "#ports", &state->port_count) < 0) {
+    if (ADT_GETPROP(adt_offset, "#ports", &state->port_count) < 0) {
         printf("pcie: Error getting port count for %s\n", path);
         return -1;
     }
 
     u64 config_base;
-    if (adt_get_reg(adt, adt_path, "reg", state->pcie_regs->config_idx, &config_base, NULL)) {
+    if (adt_get_reg(adt_path, "reg", state->pcie_regs->config_idx, &config_base, NULL)) {
         printf("pcie: Error getting reg with index %d for %s\n", state->pcie_regs->config_idx,
                path);
         return -1;
     }
 
-    if (adt_get_reg(adt, adt_path, "reg", state->pcie_regs->rc_idx, &state->rc_base, NULL)) {
+    if (adt_get_reg(adt_path, "reg", state->pcie_regs->rc_idx, &state->rc_base, NULL)) {
         printf("pcie: Error getting reg with index %d for %s\n", state->pcie_regs->rc_idx, path);
         return -1;
     }
 
-    if (adt_get_reg(adt, adt_path, "reg", state->pcie_regs->axi_idx, &state->axi_base, NULL)) {
+    if (adt_get_reg(adt_path, "reg", state->pcie_regs->axi_idx, &state->axi_base, NULL)) {
         printf("pcie: Error getting reg with index %d for %s\n", state->pcie_regs->axi_idx, path);
         return -1;
     }
 
     if (state->pcie_regs->phy_common_idx != -1) {
-        if (adt_get_reg(adt, adt_path, "reg", state->pcie_regs->phy_common_idx,
+        if (adt_get_reg(adt_path, "reg", state->pcie_regs->phy_common_idx,
                         &state->phy_common_base, NULL)) {
             printf("pcie: Error getting reg with index %d for %s\n",
                    state->pcie_regs->phy_common_idx, path);
@@ -346,12 +346,12 @@ static int pcie_init_controller(int controller, const char *path)
         state->phy_common_base = 0;
     }
 
-    if (adt_get_reg(adt, adt_path, "reg", state->pcie_regs->phy_idx, &state->phy_base[0], NULL)) {
+    if (adt_get_reg(adt_path, "reg", state->pcie_regs->phy_idx, &state->phy_base[0], NULL)) {
         printf("pcie: Error getting reg with index %d for %s\n", state->pcie_regs->phy_idx, path);
         return -1;
     }
 
-    if (adt_get_reg(adt, adt_path, "reg", state->pcie_regs->phy_ip_idx, &state->phy_ip_base[0],
+    if (adt_get_reg(adt_path, "reg", state->pcie_regs->phy_ip_idx, &state->phy_ip_base[0],
                     NULL)) {
         printf("pcie: Error getting reg with index %d for %s\n", state->pcie_regs->phy_ip_idx,
                path);
@@ -370,13 +370,13 @@ static int pcie_init_controller(int controller, const char *path)
         state->phy_ip_base[phy] = state->phy_ip_base[0] + PHYIP_STRIDE * phy;
     }
 
-    if (adt_get_reg(adt, adt_path, "reg", state->pcie_regs->fuse_idx, &state->fuse_base, NULL)) {
+    if (adt_get_reg(adt_path, "reg", state->pcie_regs->fuse_idx, &state->fuse_base, NULL)) {
         printf("pcie: Error getting reg with index %d for %s\n", state->pcie_regs->fuse_idx, path);
         return -1;
     }
 
     u32 reg_len;
-    if (!adt_getprop(adt, adt_offset, "reg", &reg_len)) {
+    if (!adt_getprop(adt_offset, "reg", &reg_len)) {
         printf("pcie: Error getting reg length for %s\n", path);
         return -1;
     }
@@ -397,7 +397,7 @@ static int pcie_init_controller(int controller, const char *path)
         return -1;
     }
 
-    if (!adt_getprop(adt, adt_offset, "apcie-axi2af-tunables", NULL)) {
+    if (!adt_getprop(adt_offset, "apcie-axi2af-tunables", NULL)) {
         printf("pcie: No axi2af tunables\n");
     } else if (tunables_apply_local(path, "apcie-axi2af-tunables", state->pcie_regs->axi_idx)) {
         printf("pcie: Error applying %s for %s\n", "apcie-axi2af-tunables", path);
@@ -408,7 +408,7 @@ static int pcie_init_controller(int controller, const char *path)
     if (controller == APCIE)
         write32(state->rc_base + 0x4, 0);
 
-    if (!adt_getprop(adt, adt_offset, "apcie-common-tunables", NULL)) {
+    if (!adt_getprop(adt_offset, "apcie-common-tunables", NULL)) {
         printf("pcie: No common tunables\n");
     } else if (tunables_apply_local(path, "apcie-common-tunables", state->pcie_regs->rc_idx)) {
         printf("pcie: Error applying %s for %s\n", "apcie-common-tunables", path);
@@ -419,7 +419,7 @@ static int pcie_init_controller(int controller, const char *path)
      * Initialize PHY.
      */
 
-    if (!adt_getprop(adt, adt_offset, "apcie-phy-tunables", NULL)) {
+    if (!adt_getprop(adt_offset, "apcie-phy-tunables", NULL)) {
         printf("pcie: No PHY tunables\n");
     } else if (tunables_apply_local(path, "apcie-phy-tunables", state->pcie_regs->phy_idx)) {
         printf("pcie: Error applying %s for %s\n", "apcie-phy-tunables", path);
@@ -546,12 +546,12 @@ static int pcie_init_controller(int controller, const char *path)
                 break;
         }
 
-        if ((bridge_offset = adt_path_offset(adt, bridge)) < 0)
+        if ((bridge_offset = adt_path_offset(bridge)) < 0)
             continue;
 
         printf("pcie: Initializing port %d\n", port);
 
-        if (adt_get_reg(adt, adt_path, "reg",
+        if (adt_get_reg(adt_path, "reg",
                         port * port_reg_cnt + state->pcie_regs->shared_reg_count,
                         &state->port_base[port], NULL)) {
             printf("pcie: Error getting reg with index %d for %s\n",
@@ -559,7 +559,7 @@ static int pcie_init_controller(int controller, const char *path)
             return -1;
         }
 
-        if (adt_get_reg(adt, adt_path, "reg",
+        if (adt_get_reg(adt_path, "reg",
                         port * port_reg_cnt + state->pcie_regs->shared_reg_count + 1,
                         &state->port_ltssm_base[port], NULL)) {
             printf("pcie: Error getting reg with index %d for %s\n",
@@ -567,7 +567,7 @@ static int pcie_init_controller(int controller, const char *path)
             return -1;
         }
 
-        if (adt_get_reg(adt, adt_path, "reg",
+        if (adt_get_reg(adt_path, "reg",
                         port * port_reg_cnt + state->pcie_regs->shared_reg_count + 2,
                         &state->port_phy_base[port], NULL)) {
             printf("pcie: Error getting reg with index %d for %s\n",
@@ -576,7 +576,7 @@ static int pcie_init_controller(int controller, const char *path)
         }
 
         if (port_reg_cnt >= 5) {
-            if (adt_get_reg(adt, adt_path, "reg",
+            if (adt_get_reg(adt_path, "reg",
                             port * port_reg_cnt + state->pcie_regs->shared_reg_count + 4,
                             &state->port_intr2axi_base[port], NULL)) {
                 printf("pcie: Error getting reg with index %d for %s\n",
@@ -737,7 +737,7 @@ static int pcie_init_controller(int controller, const char *path)
         }
 
         u32 max_speed;
-        if (ADT_GETPROP(adt, bridge_offset, "maximum-link-speed", &max_speed) >= 0) {
+        if (ADT_GETPROP(bridge_offset, "maximum-link-speed", &max_speed) >= 0) {
             /* Some devices override "maximum-link-speed" in the device child nodes.
              * The property used for the link speed seems to be ad-hoc made up.
              * The 10 GB ethernet adapter uses "target-link-speed" and the SD card
@@ -745,13 +745,13 @@ static int pcie_init_controller(int controller, const char *path)
              * resides in the first (only?) child node.
              */
             if (max_speed == 1) {
-                int np = adt_first_child_offset(adt, bridge_offset);
+                int np = adt_first_child_offset(bridge_offset);
                 if (np >= 0) {
                     int target_speed;
-                    if (ADT_GETPROP(adt, np, "target-link-speed", &target_speed) >= 0 &&
+                    if (ADT_GETPROP(np, "target-link-speed", &target_speed) >= 0 &&
                         target_speed > 0) {
                         max_speed = target_speed;
-                    } else if (ADT_GETPROP(adt, np, "expected-link-speed", &target_speed) >= 0 &&
+                    } else if (ADT_GETPROP(np, "expected-link-speed", &target_speed) >= 0 &&
                                target_speed > 0) {
                         max_speed = target_speed;
                     }

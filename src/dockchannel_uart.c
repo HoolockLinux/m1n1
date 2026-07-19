@@ -19,10 +19,10 @@ int dockchannel_uart_init(void)
 {
     int path[8];
 
-    if (adt_path_offset_trace(adt, "/arm-io/dockchannel-uart", path) < 0)
+    if (adt_path_offset_trace("/arm-io/dockchannel-uart", path) < 0)
         return -1;
 
-    if (adt_get_reg(adt, path, "reg", 0, &uart_base, NULL)) {
+    if (adt_get_reg(path, "reg", 0, &uart_base, NULL)) {
         printf("!!! Failed to get dockchannel UART reg property!\n");
         return -1;
     }

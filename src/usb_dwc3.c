@@ -535,7 +535,7 @@ static void usb_build_serial(void)
     if (str_serial)
         return;
 
-    const char *serial = adt_getprop(adt, 0, "serial-number", NULL);
+    const char *serial = adt_getprop(0, "serial-number", NULL);
     if (!serial || !serial[0]) {
         str_serial = &str_serial_dummy;
         return;

@@ -154,22 +154,22 @@ static bool sart3_set_entry(sart_dev_t *sart, int index, u8 flags, void *paddr_,
 sart_dev_t *sart_init(const char *adt_path)
 {
     int sart_path[8];
-    int node = adt_path_offset_trace(adt, adt_path, sart_path);
+    int node = adt_path_offset_trace(adt_path, sart_path);
     if (node < 0) {
         printf("sart: Error getting SART node %s\n", adt_path);
         return NULL;
     }
 
     u64 base;
-    if (adt_get_reg(adt, sart_path, "reg", 0, &base, NULL) < 0) {
+    if (adt_get_reg(sart_path, "reg", 0, &base, NULL) < 0) {
         printf("sart: Error getting SART %s base address.\n", adt_path);
         return NULL;
     }
 
-    const u32 *sart_version = adt_getprop(adt, node, "sart-version", NULL);
+    const u32 *sart_version = adt_getprop(node, "sart-version", NULL);
     const u32 sart_version_zero = 0;
     if (!sart_version) {
-        if (adt_is_compatible(adt, node, "sart,t8015")) {
+        if (adt_is_compatible(node, "sart,t8015")) {
             sart_version = &sart_version_zero;
         } else {
             printf("sart: SART %s has no sart-version property\n", adt_path);

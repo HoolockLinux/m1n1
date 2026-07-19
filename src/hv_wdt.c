@@ -132,14 +132,14 @@ void hv_wdt_init(void)
     char boot_cpu_name[32];
 
     snprintf(boot_cpu_name, sizeof(boot_cpu_name), "/cpus/cpu%d", boot_cpu_idx);
-    int node = adt_path_offset(adt, boot_cpu_name);
+    int node = adt_path_offset(boot_cpu_name);
     if (node < 0) {
         printf("Error getting %s node\n", boot_cpu_name);
         return;
     }
 
     u64 reg[2];
-    if (ADT_GETPROP_ARRAY(adt, node, "cpu-uttdbg-reg", reg) < 0) {
+    if (ADT_GETPROP_ARRAY(node, "cpu-uttdbg-reg", reg) < 0) {
         printf("Error getting cpu-uttdbg-reg property\n");
         return;
     }

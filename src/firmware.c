@@ -283,7 +283,7 @@ bool firmware_sfw_in_range(enum fw_version lower_bound, enum fw_version upper_bo
 
 int firmware_init(void)
 {
-    int node = adt_path_offset(adt, "/chosen");
+    int node = adt_path_offset("/chosen");
 
     if (node < 0) {
         printf("ADT: no /chosen found\n");
@@ -291,7 +291,7 @@ int firmware_init(void)
     }
 
     u32 len;
-    const char *p = adt_getprop(adt, node, "firmware-version", &len);
+    const char *p = adt_getprop(node, "firmware-version", &len);
     if (p && len && p[len - 1] == 0) {
         detect_firmware(&os_firmware, p);
         printf("OS FW version: %s (%s)\n", os_firmware.string, os_firmware.iboot);
@@ -300,7 +300,7 @@ int firmware_init(void)
         return -1;
     }
 
-    p = adt_getprop(adt, node, "system-firmware-version", &len);
+    p = adt_getprop(node, "system-firmware-version", &len);
     if (p && len && p[len - 1] == 0) {
         detect_firmware(&system_firmware, p);
         printf("System FW version: %s (%s)\n", system_firmware.string, system_firmware.iboot);

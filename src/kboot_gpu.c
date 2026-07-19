@@ -67,10 +67,10 @@ static int get_core_counts(u32 *count, u32 nclusters, u32 ncores)
     pmgr_adt_power_enable("/arm-io/sgx");
 
     int adt_sgx_path[8];
-    if (adt_path_offset_trace(adt, "/arm-io/sgx", adt_sgx_path) < 0)
+    if (adt_path_offset_trace("/arm-io/sgx", adt_sgx_path) < 0)
         bail("ADT: GPU: Failed to get sgx\n");
 
-    if (adt_get_reg(adt, adt_sgx_path, "reg", 0, &base, NULL) < 0)
+    if (adt_get_reg(adt_sgx_path, "reg", 0, &base, NULL) < 0)
         bail("ADT: GPU: Failed to get sgx reg 0\n");
 
     u32 cores[3] = {0, 0, 0};
@@ -423,11 +423,11 @@ static int dt_set_region(void *dt, int sgx, const char *name, const char *path)
     char prop[64];
 
     snprintf(prop, sizeof(prop), "%s-base", name);
-    if (ADT_GETPROP(adt, sgx, prop, &base) < 0 || !base)
+    if (ADT_GETPROP(sgx, prop, &base) < 0 || !base)
         bail("ADT: GPU: failed to find %s property\n", prop);
 
     snprintf(prop, sizeof(prop), "%s-size", name);
-    if (ADT_GETPROP(adt, sgx, prop, &size) < 0 || !base)
+    if (ADT_GETPROP(sgx, prop, &size) < 0 || !base)
         bail("ADT: GPU: failed to find %s property\n", prop);
 
     return dt_set_resvmem(dt, path, base, size);
@@ -543,16 +543,16 @@ int dt_set_gpu(void *dt)
     downstream_dtb |= fdt_node_check_compatible(dt, gpu, "apple,agx-t6021") == 0;
     downstream_dtb |= fdt_node_check_compatible(dt, gpu, "apple,agx-t6022") == 0;
 
-    int sgx = adt_path_offset(adt, "/arm-io/sgx");
+    int sgx = adt_path_offset("/arm-io/sgx");
     if (sgx < 0)
         bail("ADT: GPU: /arm-io/sgx node not found\n");
 
     u32 perf_state_count;
-    if (ADT_GETPROP(adt, sgx, "perf-state-count", &perf_state_count) < 0 || !perf_state_count)
+    if (ADT_GETPROP(sgx, "perf-state-count", &perf_state_count) < 0 || !perf_state_count)
         bail("ADT: GPU: missing perf-state-count\n");
 
     u32 perf_state_table_count;
-    if (ADT_GETPROP(adt, sgx, "perf-state-table-count", &perf_state_table_count) < 0 ||
+    if (ADT_GETPROP(sgx, "perf-state-table-count", &perf_state_table_count) < 0 ||
         !perf_state_table_count)
         bail("ADT: GPU: missing perf-state-table-count\n");
 
@@ -566,18 +566,18 @@ int dt_set_gpu(void *dt)
     const struct perf_state *perf_states, *perf_states_sram;
     const struct aux_perf_states *perf_states_afr, *perf_states_cs;
 
-    perf_states = adt_getprop(adt, sgx, "perf-states", &perf_states_len);
+    perf_states = adt_getprop(sgx, "perf-states", &perf_states_len);
     if (!perf_states ||
         perf_states_len != sizeof(*perf_states) * perf_state_count * perf_state_table_count)
         bail("ADT: GPU: invalid perf-states length\n");
 
-    perf_states_sram = adt_getprop(adt, sgx, "perf-states-sram", &perf_states_len);
+    perf_states_sram = adt_getprop(sgx, "perf-states-sram", &perf_states_len);
     if (perf_states_sram &&
         perf_states_len != sizeof(*perf_states) * perf_state_count * perf_state_table_count)
         bail("ADT: GPU: invalid perf-states-sram length\n");
 
-    perf_states_afr = adt_getprop(adt, sgx, "afr-perf-states", NULL);
-    perf_states_cs = adt_getprop(adt, sgx, "cs-perf-states", NULL);
+    perf_states_afr = adt_getprop(sgx, "afr-perf-states", NULL);
+    perf_states_cs = adt_getprop(sgx, "cs-perf-states", NULL);
 
     if (has_cs_afr && !perf_states_cs)
         bail("ADT: GPU: cs-perf-states not found\n");

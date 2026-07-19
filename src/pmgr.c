@@ -73,7 +73,7 @@ static uintptr_t pmgr_get_psreg(u8 idx)
     u32 reg_offset = pmgr_ps_regs[3 * idx + 1];
 
     u64 pmgr_reg;
-    if (adt_get_reg(adt, pmgr_path, "reg", reg_idx, &pmgr_reg, NULL) < 0) {
+    if (adt_get_reg(pmgr_path, "reg", reg_idx, &pmgr_reg, NULL) < 0) {
         printf("pmgr: Error getting /arm-io/pmgr regs\n");
         return 0;
     }
@@ -209,13 +209,13 @@ int pmgr_power_disable(u32 id)
 
 static int pmgr_adt_find_devices(const char *path, const u32 **devices, u32 *n_devices)
 {
-    int node_offset = adt_path_offset(adt, path);
+    int node_offset = adt_path_offset(path);
     if (node_offset < 0) {
         printf("pmgr: Error getting node %s\n", path);
         return -1;
     }
 
-    *devices = adt_getprop(adt, node_offset, "clock-gates", n_devices);
+    *devices = adt_getprop(node_offset, "clock-gates", n_devices);
     if (*devices == NULL || *n_devices == 0) {
         printf("pmgr: Error getting %s clock-gates.\n", path);
         return -1;
@@ -380,31 +380,31 @@ int pmgr_power_on(int die, const char *name)
 
 int pmgr_init(void)
 {
-    int node = adt_path_offset(adt, "/arm-io");
+    int node = adt_path_offset("/arm-io");
     if (node < 0) {
         printf("pmgr: Error getting /arm-io node\n");
         return -1;
     }
-    if (ADT_GETPROP(adt, node, "die-count", &pmgr_dies) < 0)
+    if (ADT_GETPROP(node, "die-count", &pmgr_dies) < 0)
         pmgr_dies = 1;
 
-    pmgr_offset = adt_path_offset_trace(adt, "/arm-io/pmgr", pmgr_path);
+    pmgr_offset = adt_path_offset_trace("/arm-io/pmgr", pmgr_path);
     if (pmgr_offset < 0) {
         printf("pmgr: Error getting /arm-io/pmgr node\n");
         return -1;
     }
 
-    pmgr_ps_regs = adt_getprop(adt, pmgr_offset, "ps-regs", &pmgr_ps_regs_len);
+    pmgr_ps_regs = adt_getprop(pmgr_offset, "ps-regs", &pmgr_ps_regs_len);
     if (pmgr_ps_regs == NULL || pmgr_ps_regs_len == 0) {
         pmgr_use_group_and_offset = true;
-        pmgr_ps_regs = adt_getprop(adt, pmgr_offset, "ps-groups", &pmgr_ps_regs_len);
+        pmgr_ps_regs = adt_getprop(pmgr_offset, "ps-groups", &pmgr_ps_regs_len);
         if (pmgr_ps_regs == NULL || pmgr_ps_regs_len == 0) {
             printf("pmgr: Error getting /arm-io/pmgr ps-regs\n.");
             return -1;
         }
     }
 
-    pmgr_devices = adt_getprop(adt, pmgr_offset, "devices", &pmgr_devices_len);
+    pmgr_devices = adt_getprop(pmgr_offset, "devices", &pmgr_devices_len);
     if (pmgr_devices == NULL || pmgr_devices_len == 0) {
         printf("pmgr: Error getting /arm-io/pmgr devices.\n");
         return -1;
@@ -475,11 +475,11 @@ u32 pmgr_get_feature(const char *name)
 {
     u32 val = 0;
 
-    int node = adt_path_offset(adt, "/arm-io/pmgr");
+    int node = adt_path_offset("/arm-io/pmgr");
     if (node < 0)
         return 0;
 
-    if (ADT_GETPROP(adt, node, name, &val) < 0)
+    if (ADT_GETPROP(node, name, &val) < 0)
         return 0;
 
     return val;

@@ -31,14 +31,14 @@ i2c_dev_t *i2c_init(const char *adt_node)
 {
     int adt_path[8];
     int adt_offset;
-    adt_offset = adt_path_offset_trace(adt, adt_node, adt_path);
+    adt_offset = adt_path_offset_trace(adt_node, adt_path);
     if (adt_offset < 0) {
         printf("i2c: Error getting %s node\n", adt_node);
         return NULL;
     }
 
     u64 base;
-    if (adt_get_reg(adt, adt_path, "reg", 0, &base, NULL) < 0) {
+    if (adt_get_reg(adt_path, "reg", 0, &base, NULL) < 0) {
         printf("i2c: Error getting %s regs\n", adt_node);
         return NULL;
     }

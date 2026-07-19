@@ -86,7 +86,7 @@ void dump_boot_args(struct boot_args *ba)
     printf("  machine_type: %d\n", ba->machine_type);
     printf("  devtree:      %p\n", ba->devtree);
     printf("  devtree_size: 0x%x\n", ba->devtree_size);
-    int node = adt_path_offset(adt, "/chosen");
+    int node = adt_path_offset("/chosen");
 
     if (node < 0) {
         printf("ADT: no /chosen found\n");
@@ -95,7 +95,7 @@ void dump_boot_args(struct boot_args *ba)
 
     /* This is called very early - before firmware information is initialized */
     u32 len;
-    const char *p = adt_getprop(adt, node, "firmware-version", &len);
+    const char *p = adt_getprop(node, "firmware-version", &len);
     if (!p) {
         printf("ADT: failed to find firmware-version\n");
         return;
@@ -136,7 +136,7 @@ void dump_boot_args(struct boot_args *ba)
     }
     if (!mem_size_actual) {
         if (chip_id == T8012) {
-            int anode = adt_path_offset(adt, "/arm-io/mcc");
+            int anode = adt_path_offset("/arm-io/mcc");
 
             /*
              * For T8012, compute mem_size_actual from the amount of memory channels
@@ -147,7 +147,7 @@ void dump_boot_args(struct boot_args *ba)
              */
 
             u32 dcs_num_channels = 0;
-            if (anode > 0 && ADT_GETPROP(adt, anode, "dcs_num_channels", &dcs_num_channels) > 0)
+            if (anode > 0 && ADT_GETPROP(anode, "dcs_num_channels", &dcs_num_channels) > 0)
                 mem_size_actual = dcs_num_channels * 0x20000000;
             else
                 mem_size_actual = 0x40000000;
@@ -172,15 +172,15 @@ void _start_c(void *boot_args, void *base)
         (void *)(((u64)cur_boot_args.devtree) - cur_boot_args.virt_base + cur_boot_args.phys_base);
 
 #ifndef BRINGUP
-    int node = adt_path_offset(adt, "/cpus");
+    int node = adt_path_offset("/cpus");
     if (node >= 0) {
-        ADT_FOREACH_CHILD(adt, node)
+        ADT_FOREACH_CHILD(node)
         {
-            const char *state = adt_getprop(adt, node, "state", NULL);
+            const char *state = adt_getprop(node, "state", NULL);
             if (!state)
                 continue;
             if (strcmp(state, "running") == 0)
-                if (ADT_GETPROP(adt, node, "cpu-id", &cpu_id) == sizeof(cpu_id))
+                if (ADT_GETPROP(node, "cpu-id", &cpu_id) == sizeof(cpu_id))
                     break;
         }
     }

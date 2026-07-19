@@ -27,13 +27,13 @@ struct tps6598x_dev {
 tps6598x_dev_t *tps6598x_init(const char *adt_node, i2c_dev_t *i2c)
 {
     int adt_offset;
-    adt_offset = adt_path_offset(adt, adt_node);
+    adt_offset = adt_path_offset(adt_node);
     if (adt_offset < 0) {
         printf("tps6598x: Error getting %s node\n", adt_node);
         return NULL;
     }
 
-    const u8 *iic_addr = adt_getprop(adt, adt_offset, "hpm-iic-addr", NULL);
+    const u8 *iic_addr = adt_getprop(adt_offset, "hpm-iic-addr", NULL);
     if (iic_addr == NULL) {
         printf("tps6598x: Error getting %s hpm-iic-addr\n.", adt_node);
         return NULL;
@@ -197,7 +197,7 @@ int tps6598x_powerup(tps6598x_dev_t *dev)
 int tps6598x_enter_kis(tps6598x_dev_t *dev)
 {
     u32 target_len = 0;
-    const u8 *target = adt_getprop(adt, 0, "target-type", &target_len);
+    const u8 *target = adt_getprop(0, "target-type", &target_len);
     u8 key[4] = {0};
     const u8 key_null[4] = {0, 0, 0, 0};
     const u8 vdm[] = {0x06, 0x46, 0x82, 0x01};
@@ -259,36 +259,36 @@ int tps6598x_enable_debugusb(void)
     int node;
     int ret;
 
-    node = adt_path_offset(adt, "/arm-io");
+    node = adt_path_offset("/arm-io");
     if (node < 0)
         return -1;
 
-    ADT_FOREACH_CHILD(adt, node)
+    ADT_FOREACH_CHILD(node)
     {
         int mngr_node;
 
-        if (!adt_is_compatible(adt, node, "i2c,s5l8940x"))
+        if (!adt_is_compatible(node, "i2c,s5l8940x"))
             continue;
 
-        mngr_node = adt_first_child_offset(adt, node);
-        if (mngr_node < 0 || !adt_is_compatible(adt, mngr_node, "usbc,manager"))
+        mngr_node = adt_first_child_offset(node);
+        if (mngr_node < 0 || !adt_is_compatible(mngr_node, "usbc,manager"))
             continue;
 
         int it = mngr_node;
-        ADT_FOREACH_CHILD(adt, it)
+        ADT_FOREACH_CHILD(it)
         {
-            if (!adt_is_compatible(adt, it, "usbc,cd3217"))
+            if (!adt_is_compatible(it, "usbc,cd3217"))
                 continue;
 
-            const char *name = adt_get_name(adt, it);
+            const char *name = adt_get_name(it);
             if (strcmp(name, "hpm0"))
                 continue;
 
-            ret = snprintf(i2c_path, sizeof(i2c_path), "/arm-io/%s", adt_get_name(adt, node));
+            ret = snprintf(i2c_path, sizeof(i2c_path), "/arm-io/%s", adt_get_name(node));
             if (ret < 0 || (size_t)ret >= sizeof(i2c_path))
                 continue;
-            ret = snprintf(hpm_path, sizeof(hpm_path), "/arm-io/%s/%s/%s", adt_get_name(adt, node),
-                           adt_get_name(adt, mngr_node), name);
+            ret = snprintf(hpm_path, sizeof(hpm_path), "/arm-io/%s/%s/%s", adt_get_name(node),
+                           adt_get_name(mngr_node), name);
             if (ret < 0 || (size_t)ret >= sizeof(hpm_path))
                 continue;
 
