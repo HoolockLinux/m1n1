@@ -7,11 +7,11 @@
 // a few bits in a few registers are the same as atc, but still very different from atc overall
 
 /* Constants */
-/* Some controllers only accept 32-bit addresses, and PHY can remap it */
+/* Some controllers only accept 32-bit addresses, and bus can remap it */
 // For DRAM 0x800000000-0x8ffffffff
 #define USBX_REMAP_VAL 0x8
 
-/* USB complex registers (Bus?) */
+/* USB Complex (bus) registers */
 /* S5L8960X registers */
 #define USBX_USBDEV_REMAP_CTL_S5L8960X 0x1c
 #define USBX_EHCI0_REMAP_CTL_S5L8960X  0x3c
@@ -28,16 +28,16 @@
 #define USBX_CTL_T8011    0x0
 #define USBX_CTL_EN_T8011 BIT(0)
 
-#define USBX_REMAP_EN1_T8011 BIT(24)
-#define USBX_REMAP_EN2_T8011 BIT(25)
+#define USBX_REMAP_DMA_TO_DEVICE_EN_T8011   BIT(24)
+#define USBX_REMAP_DMA_FROM_DEVICE_EN_T8011 BIT(25)
 
-#define USBX_REMAP_VAL_MASK1_T8011 GENMASK(3, 0)
-#define USBX_REMAP_VAL_MASK2_T8011 GENMASK(7, 4)
+#define USBX_REMAP_DMA_TO_DEVICE_T8011   GENMASK(3, 0)
+#define USBX_REMAP_DMA_FROM_DEVICE_T8011 GENMASK(7, 4)
 
 #define USBX_REMAP_TO_DRAM_BITS_T8011                                                              \
-    (FIELD_PREP(USBX_REMAP_VAL_MASK1_T8011, USBX_REMAP_VAL) |                                      \
-     FIELD_PREP(USBX_REMAP_VAL_MASK2_T8011, USBX_REMAP_VAL) | USBX_REMAP_EN1_T8011 |               \
-     USBX_REMAP_EN2_T8011)
+    (FIELD_PREP(USBX_REMAP_DMA_TO_DEVICE_T8011, USBX_REMAP_VAL) |                                  \
+     FIELD_PREP(USBX_REMAP_DMA_FROM_DEVICE_T8011, USBX_REMAP_VAL) |                                \
+     USBX_REMAP_DMA_TO_DEVICE_EN_T8011 | USBX_REMAP_DMA_FROM_DEVICE_EN_T8011)
 
 /* T8011 registers */
 #define USBX_USB3DEV_REMAP_CTL_T8011 0x18
@@ -51,7 +51,7 @@
 #define USBX_EHCI1_REMAP_CTL_T8015  0x38
 #define USBX_USBDEV_REMAP_CTL_T8015 0x48
 
-/* custom OTG registers (PHY?) */
+/* USB PHY registers */
 
 #define USBX_OTG_CTL       0x00
 #define USBX_OTG_CTL_RESET BIT(0)
