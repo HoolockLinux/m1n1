@@ -12,7 +12,7 @@
 #include "utils.h"
 
 /* bound by high power mode setting on A7 */
-#define ANS1_TIMEOUT      15000000
+#define ANS1_TIMEOUT      60000000
 
 #define ANS1_CMD_SIZE     2240
 #define ANS1_MAX_IO_PAGES 512
@@ -332,8 +332,6 @@ static bool ans1_apply_tunables_s5l8960x(void)
     if (!ans1_exec_command(cmd))
         return false;
 
-    printf("TUNABLE 1 OK\n");
-
     memset(cmd, '\0', ANS1_CMD_SIZE);
     cmd->op = ANS1_CMD_OP_POWER_CONFIG;
     cmd->common.cdw[13] = 0x13;
@@ -350,8 +348,6 @@ static bool ans1_apply_tunables_s5l8960x(void)
     if (!ans1_exec_command(cmd))
         return false;
 
-    printf("TUNABLE 2 OK\n");
-
     memset(cmd, '\0', ANS1_CMD_SIZE);
     cmd->op = ANS1_CMD_OP_POWER_CONFIG;
     cmd->common.cdw[13] = 0x25;
@@ -365,8 +361,6 @@ static bool ans1_apply_tunables_s5l8960x(void)
     cmd->common.cdw[22] = 0x1;
     cmd->common.cdw[23] = 0x1;
 
-    printf("TUNABLE 3 OK\n");
-
     if (!ans1_exec_command(cmd))
         return false;
 
@@ -379,7 +373,6 @@ static bool ans1_apply_tunables_s5l8960x(void)
     if (!ans1_exec_command(cmd))
         return false;
 
-    printf("TUNABLE 4 OK\n");
     return true;
 }
 
@@ -510,8 +503,6 @@ bool ans1_init(void)
         if (!rtkit_send(ans1_rtkit, &rtk_msg))
             goto out_shutdown;
     }
-
-    printf("ans1_queue: %p\n", ans1_queue);
 
     bool ok;
     /*
