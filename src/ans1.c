@@ -11,6 +11,9 @@
 #include "types.h"
 #include "utils.h"
 
+/* bound by high power mode setting on A7 */
+#define ANS1_TIMEOUT      15000000
+
 #define ANS1_CMD_SIZE     2240
 #define ANS1_MAX_IO_PAGES 512
 #define ANS1_NUM_TAGS     8
@@ -217,7 +220,7 @@ static bool ans1_wait_for_tag(rtkit_dev_t *rtk, u8 expected_tag)
     struct rtkit_message msg;
     int ret;
 
-    u64 timeout = timeout_calculate(1000000);
+    u64 timeout = timeout_calculate(ANS1_TIMEOUT);
 
     while (!timeout_expired(timeout)) {
         if ((ret = rtkit_recv(rtk, &msg)) == 0)
@@ -318,7 +321,72 @@ bool ans1_read_main_storage(u64 lba, void *buffer)
     return true;
 }
 
-static bool ans1_apply_tunables(void)
+static bool ans1_apply_tunables_s5l8960x(void)
+{
+    memset(cmd, '\0', ANS1_CMD_SIZE);
+    cmd->op = ANS1_CMD_OP_POWER_CONFIG;
+    cmd->common.cdw[13] = 0x2a;
+    cmd->common.cdw[16] = 0x400000;
+    cmd->common.cdw[17] = 0x200000;
+
+    if (!ans1_exec_command(cmd))
+        return false;
+
+    printf("TUNABLE 1 OK\n");
+
+    memset(cmd, '\0', ANS1_CMD_SIZE);
+    cmd->op = ANS1_CMD_OP_POWER_CONFIG;
+    cmd->common.cdw[13] = 0x13;
+    cmd->common.cdw[14] = 0x3;
+    cmd->common.cdw[16] = 0x2;
+    cmd->common.cdw[17] = 0x1;
+    cmd->common.cdw[18] = 0x2;
+    cmd->common.cdw[19] = 0x2;
+    cmd->common.cdw[20] = 0x4;
+    cmd->common.cdw[21] = 0x4;
+    cmd->common.cdw[22] = 0x1;
+    cmd->common.cdw[23] = 0x4;
+
+    if (!ans1_exec_command(cmd))
+        return false;
+
+    printf("TUNABLE 2 OK\n");
+
+    memset(cmd, '\0', ANS1_CMD_SIZE);
+    cmd->op = ANS1_CMD_OP_POWER_CONFIG;
+    cmd->common.cdw[13] = 0x25;
+    cmd->common.cdw[14] = 0x3;
+    cmd->common.cdw[16] = 0x1;
+    cmd->common.cdw[17] = 0x1;
+    cmd->common.cdw[18] = 0x1;
+    cmd->common.cdw[19] = 0x1;
+    cmd->common.cdw[20] = 0x1;
+    cmd->common.cdw[21] = 0x1;
+    cmd->common.cdw[22] = 0x1;
+    cmd->common.cdw[23] = 0x1;
+
+    printf("TUNABLE 3 OK\n");
+
+    if (!ans1_exec_command(cmd))
+        return false;
+
+    /* high power mode */
+    memset(cmd, '\0', ANS1_CMD_SIZE);
+    cmd->op = ANS1_CMD_OP_POWER_CONFIG;
+    cmd->common.cdw[13] = 0x26;
+    cmd->common.cdw[16] = 0x1;
+
+    if (!ans1_exec_command(cmd))
+        return false;
+
+    printf("TUNABLE 4 OK\n");
+    return true;
+}
+
+/*
+ * tunables seem same for T7000 vs. T7001
+ */
+static bool ans1_apply_tunables_t700x(void)
 {
     /* No idea about the details of these commands, so use common */
 
@@ -363,7 +431,10 @@ static bool ans1_apply_tunables(void)
     if (!ans1_exec_command(cmd))
         return false;
 
-    /* This command sets the coprocessor to "high power mode" */
+    /*
+     * This command sets the coprocessor to "high power mode",
+     * but also update the command buffer
+     */
     memset(cmd, '\0', ANS1_CMD_SIZE);
     cmd->op = ANS1_CMD_OP_POWER_CONFIG;
     cmd->common.cdw[13] = 0x26;
@@ -440,12 +511,23 @@ bool ans1_init(void)
             goto out_shutdown;
     }
 
+    printf("ans1_queue: %p\n", ans1_queue);
+
+    bool ok;
     /*
-     * XXX how to handle A7 properly? Ideally should trace iboot but
-     * iboot_tracer does not support iOS 12.
+     * TODO check performance in Linux to see if they are required
      */
-    if (chip_id != S5L8960X && !ans1_apply_tunables())
-        goto out_shutdown;
+    if (chip_id == S5L8960X) {
+        ok = ans1_apply_tunables_s5l8960x();
+    } else if (chip_id == T7000 || chip_id == T7001) {
+        ok = ans1_apply_tunables_t700x();
+    } else {
+        printf("ANS1: Unknown tunables, skipping");
+        ok = true;
+    }
+
+    if (!ok)
+        return false;
 
     ans1_initialized = true;
     printf("ANS1: Initialized\n");
