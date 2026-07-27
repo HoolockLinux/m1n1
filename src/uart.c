@@ -108,8 +108,12 @@ void uart_setbaud(int baudrate)
     if (!uart_base)
         return;
 
+    u8 oversample = min(16, UART_CLOCK / baudrate);
+
     uart_flush();
-    write32(uart_base + UBRDIV, ((UART_CLOCK / baudrate + 7) / 16) - 1);
+    write32(uart_base + UBRDIV,
+            FIELD_PREP(UBRDIV_DIV, ((UART_CLOCK / baudrate + 7) / oversample) - 1) |
+                FIELD_PREP(UBRDIV_OVERSAMPLE, 0x10 - oversample));
 }
 
 void uart_flush(void)
