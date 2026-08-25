@@ -4,6 +4,7 @@
 
 #include "kboot.h"
 #include "adt.h"
+#include "akf_fw.h"
 #include "assert.h"
 #include "clk.h"
 #include "dapf.h"
@@ -2401,6 +2402,51 @@ static int dt_set_isp_fwdata(void)
     return 0;
 }
 
+static int dt_set_asp_fwdata(void)
+{
+    /* to avoid generating noise on A9+, check ADT first */
+    int adt_node = adt_path_offset(adt, "/arm-io/ans");
+    if (adt_node < 0)
+        return 0;
+
+    const char *fdt_path = "asp";
+    int ret = 0;
+
+    u64 phys, iova, size;
+
+    int fdt_node = fdt_path_offset(dt, fdt_path);
+    if (fdt_node < 0) {
+        printf("FDT: '%s' not found\n", fdt_path);
+        return 0;
+    }
+
+    uint32_t dev_phandle = fdt_get_phandle(dt, fdt_node);
+    if (!dev_phandle) {
+        ret = fdt_generate_phandle(dt, &dev_phandle);
+        if (!ret)
+            ret = fdt_setprop_u32(dt, fdt_node, "phandle", dev_phandle);
+        if (ret != 0)
+            bail("FDT: couldn't set '%s.phandle' property: %d\n", fdt_path, ret);
+    }
+
+    int fw_node = adt_first_child_offset(adt, adt_node);
+    if (!fw_node)
+        bail("ADT: IOP Firmware node not found\n");
+
+    if (!akf_fw_get_region(fw_node, &phys, &iova, &size))
+        return -1;
+
+    int mem_node = dt_get_or_add_reserved_mem("ans-firmware", "apple,iop-mem", true, phys, size);
+    if (mem_node < 0)
+        return ret;
+
+    ret = dt_device_set_reserved_mem(mem_node, "firmware", dev_phandle, iova, size);
+    if (ret < 0)
+        return ret;
+
+    return 0;
+}
+
 static int dt_disable_missing_devs(const char *adt_prefix, const char *dt_prefix, int max_devs,
                                    int regnum)
 {
@@ -2957,6 +3003,8 @@ int kboot_prepare_dt(void *fdt)
     if (dt_reserve_asc_firmware("/arm-io/isp", "/arm-io/isp0", "isp", false, isp_iova_base()))
         return -1;
     if (dt_set_isp_fwdata())
+        return -1;
+    if (dt_set_asp_fwdata())
         return -1;
     if (dt_set_pmgr())
         return -1;
