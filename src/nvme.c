@@ -7,6 +7,7 @@
 #include "pmgr.h"
 #include "rtkit.h"
 #include "sart.h"
+#include "smc.h"
 #include "string.h"
 #include "utils.h"
 
@@ -141,10 +142,13 @@ static u8 nvme_die;
 static asc_dev_t *nvme_asc = NULL;
 static rtkit_dev_t *nvme_rtkit = NULL;
 static sart_dev_t *nvme_sart = NULL;
+static smc_dev_t *smc;
 
 static u64 nvme_base;
 static u64 nvmmu_base;
 static u8 nvme_queue_size;
+
+static u8 smi_ep;
 
 static struct nvme_queue adminq, ioq;
 
@@ -195,10 +199,24 @@ static void free_queue(struct nvme_queue *q)
     free(q->cqes);
 }
 
-static void nvme_poll_syslog(void)
+static void nvme_poll_rtkit(void)
 {
     struct rtkit_message msg;
-    rtkit_recv(nvme_rtkit, &msg);
+
+    while (rtkit_recv(nvme_rtkit, &msg) > 0) {
+        if (nvme_type != NVME_T8015 || msg.ep != smi_ep) {
+            printf("nvme: unexpected message on endpoint %d\n", msg.ep);
+            return;
+        }
+
+        //printf("nvme->smc: 0x%016lx\n", msg.msg);
+
+        smc_send_smi(smc, msg.msg);
+        smc_poll(smc);
+    }
+
+    if (nvme_type == NVME_T8015)
+        smc_poll(smc);
 }
 
 static bool nvme_ctrl_disable(void)
@@ -207,7 +225,7 @@ static bool nvme_ctrl_disable(void)
 
     clear32(nvme_base + NVME_CC, NVME_CC_EN);
     while (read32(nvme_base + NVME_CSTS) & NVME_CSTS_RDY && !timeout_expired(timeout))
-        nvme_poll_syslog();
+        nvme_poll_rtkit();
 
     return !(read32(nvme_base + NVME_CSTS) & NVME_CSTS_RDY);
 }
@@ -218,7 +236,7 @@ static bool nvme_ctrl_enable(void)
 
     mask32(nvme_base + NVME_CC, NVME_CC_SHN, NVME_CC_EN);
     while (!(read32(nvme_base + NVME_CSTS) & NVME_CSTS_RDY) && !timeout_expired(timeout))
-        nvme_poll_syslog();
+        nvme_poll_rtkit();
 
     return read32(nvme_base + NVME_CSTS) & NVME_CSTS_RDY;
 }
@@ -230,7 +248,7 @@ static bool nvme_ctrl_shutdown(void)
     mask32(nvme_base + NVME_CC, NVME_CC_SHN, FIELD_PREP(NVME_CC_SHN, NVME_CC_SHN_NORMAL));
     while (FIELD_GET(NVME_CSTS_SHST, read32(nvme_base + NVME_CSTS)) != NVME_CSTS_SHST_DONE &&
            !timeout_expired(timeout))
-        nvme_poll_syslog();
+        nvme_poll_rtkit();
 
     return FIELD_GET(NVME_CSTS_SHST, read32(nvme_base + NVME_CSTS)) == NVME_CSTS_SHST_DONE;
 }
@@ -317,12 +335,12 @@ static bool nvme_exec_command(struct nvme_queue *q, struct nvme_command *cmd, u6
     else
         cq_tag = nvme_submit_command_t8103(q, cmd);
 
-    nvme_poll_syslog();
+    nvme_poll_rtkit();
 
     timeout = timeout_calculate(NVME_TIMEOUT);
     struct nvme_completion cqe;
     while (!timeout_expired(timeout)) {
-        nvme_poll_syslog();
+        nvme_poll_rtkit();
 
         /* we need a DMA read barrier here since the CQ will be updated using DMA */
         dma_rmb();
@@ -372,6 +390,62 @@ static bool nvme_exec_command(struct nvme_queue *q, struct nvme_command *cmd, u6
     return true;
 }
 
+static void nvme_send_smi(u64 msg)
+{
+    if (msg == 0x82)
+        return;
+
+    const struct rtkit_message rtk_msg = {
+        .ep = smi_ep,
+        .msg = msg,
+    };
+
+    //printf("smc->nvme: 0x%016lx\n", msg);
+
+    rtkit_send(nvme_rtkit, &rtk_msg);
+    nvme_poll_rtkit();
+}
+
+static bool nvme_epmap_cb(rtkit_dev_t *rtk)
+{
+    if (nvme_type != NVME_T8015)
+        return true;
+
+    u8 rtk_major;
+
+    rtkit_protocol_version(rtk, &rtk_major, NULL);
+
+    if (rtk_major < 11)
+        smi_ep = 0x7;
+    else
+        smi_ep = 0x21;
+
+    smc_start_smi(smc, nvme_send_smi);
+    rtkit_start_ep(rtk, smi_ep);
+
+    return true;
+}
+
+static bool nvme_init_recv(rtkit_dev_t *rtk, struct rtkit_message *msg)
+{
+    UNUSED(rtk);
+
+    if (nvme_type != NVME_T8015) {
+        printf("nvme: unexpected SMI message on non-T8012\n");
+        return false;
+    }
+
+    if (msg->ep != smi_ep)
+        printf("nvme: Message to unexpected endpoint %d during init\n", msg->ep);
+
+    //printf("nvme->smc: 0x%016lx\n", msg->msg);
+
+    smc_send_smi(smc, msg->msg);
+    smc_poll(smc);
+
+    return true;
+}
+
 bool nvme_init(void)
 {
     if (nvme_initialized) {
@@ -411,6 +485,12 @@ bool nvme_init(void)
         nvme_base = nvmmu_base;
     }
 
+    if (nvme_type == NVME_T8015) {
+        smc = smc_init();
+        if (!smc)
+            return false;
+    }
+
     if (nvme_type >= NVME_T8103)
         nvme_queue_size = 64;
     else
@@ -427,7 +507,7 @@ bool nvme_init(void)
 
     if (!alloc_queue(&adminq, true)) {
         printf("nvme: Error allocating admin queue\n");
-        return NULL;
+        goto out_smc;
     }
     if (!alloc_queue(&ioq, false)) {
         printf("nvme: Error allocating admin queue\n");
@@ -442,7 +522,8 @@ bool nvme_init(void)
     if (!nvme_sart)
         goto out_asc;
 
-    nvme_rtkit = rtkit_init_asc("nvme", nvme_asc, NULL, NULL, nvme_sart, false, NULL, NULL);
+    nvme_rtkit = rtkit_init_asc("nvme", nvme_asc, NULL, NULL, nvme_sart, false, nvme_epmap_cb,
+                                nvme_init_recv);
     if (!nvme_rtkit)
         goto out_sart;
 
@@ -524,7 +605,7 @@ out_delete_cq:
 out_disable_ctrl:
     nvme_ctrl_shutdown();
     nvme_ctrl_disable();
-    nvme_poll_syslog();
+    nvme_poll_rtkit();
 out_shutdown:
     rtkit_sleep(nvme_rtkit);
     // Some machines call this ANS, some ANS2...
@@ -540,6 +621,11 @@ out_ioq:
     free_queue(&ioq);
 out_adminq:
     free_queue(&adminq);
+out_smc:
+    if (nvme_type == NVME_T8015) {
+        smc_poll(smc);
+        smc_shutdown(smc);
+    }
     return false;
 }
 
@@ -586,6 +672,9 @@ fail:
     // Some machines call this ANS, some ANS2...
     pmgr_reset(nvme_die, "ANS");
     pmgr_reset(nvme_die, "ANS2");
+
+    if (nvme_type == NVME_T8015)
+        smc_shutdown(smc);
 }
 
 void nvme_shutdown(void)
@@ -623,6 +712,10 @@ void nvme_shutdown(void)
     asc_free(nvme_asc);
     free_queue(&ioq);
     free_queue(&adminq);
+
+    if (nvme_type == NVME_T8015)
+        smc_shutdown(smc);
+
     nvme_initialized = false;
 
     printf("nvme: shutdown done\n");
