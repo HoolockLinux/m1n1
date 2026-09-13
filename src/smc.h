@@ -15,4 +15,8 @@ smc_dev_t *smc_init(void);
 void smc_power_on(void);
 void smc_shutdown(smc_dev_t *smc);
 
+int smc_poll(smc_dev_t *smc);
+void smc_start_smi(smc_dev_t *smc, void (*smi_rx)(u64 msg));
+void smc_send_smi(smc_dev_t *smc, u64 msg);
+
 #endif

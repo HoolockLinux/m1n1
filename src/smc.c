@@ -4,6 +4,7 @@
 #include "assert.h"
 #include "malloc.h"
 #include "pmgr.h"
+#include "rtkit.h"
 #include "smc.h"
 #include "string.h"
 #include "types.h"
@@ -37,6 +38,8 @@ struct smc_dev {
     void *shmem;
     u32 msgid;
     u8 ep;
+    u8 smi_ep;
+    void (*smi_rx)(u64 msg);
 
     bool outstanding[SMC_NUM_IDS];
     u64 ret[SMC_NUM_IDS];
@@ -58,27 +61,45 @@ static void smc_handle_msg(smc_dev_t *smc, u64 msg)
     }
 }
 
-static int smc_work(smc_dev_t *smc)
+int smc_poll(smc_dev_t *smc)
 {
     int ret;
     struct rtkit_message msg;
 
-    while ((ret = rtkit_recv(smc->rtkit, &msg)) == 0)
-        ;
+    if ((ret = rtkit_recv(smc->rtkit, &msg)) == 0)
+        return 0;
 
     if (ret < 0) {
         printf("SMC: rtkit_recv failed!\n");
         return ret;
     }
 
+    /*
+     * handle SMI message if enabled, otherwise the error below will catch it
+     */
+    if (msg.ep == smc->smi_ep && smc->smi_rx) {
+        smc->smi_rx(msg.msg);
+        return 0;
+    }
+
     if (msg.ep != smc->ep) {
-        printf("SMC: received message for unexpected endpoint 0x%02x\n", msg.ep);
+        printf("SMC: received message for unexpected endpoint 0x%02x 0x%016lx\n", msg.ep, msg.msg);
         return 0;
     }
 
     smc_handle_msg(smc, msg.msg);
 
-    return 0;
+    return 1;
+}
+
+static int smc_work(smc_dev_t *smc)
+{
+    int ret;
+
+    while (!(ret = smc_poll(smc)))
+        ;
+
+    return ret;
 }
 
 static void smc_send(smc_dev_t *smc, u64 message)
@@ -89,6 +110,32 @@ static void smc_send(smc_dev_t *smc, u64 message)
     msg.msg = message;
 
     rtkit_send(smc->rtkit, &msg);
+}
+
+void smc_start_smi(smc_dev_t *smc, void (*smi_rx)(u64 msg))
+{
+    u8 rtk_major;
+
+    rtkit_protocol_version(smc->rtkit, &rtk_major, NULL);
+
+    if (rtk_major < 11)
+        smc->smi_ep = 0x7;
+    else
+        smc->smi_ep = 0x21;
+
+    smc->smi_rx = smi_rx;
+
+    rtkit_start_ep(smc->rtkit, smc->smi_ep);
+}
+
+void smc_send_smi(smc_dev_t *smc, u64 msg)
+{
+    const struct rtkit_message rtk_msg = {
+        .ep = smc->smi_ep,
+        .msg = msg,
+    };
+
+    rtkit_send(smc->rtkit, &rtk_msg);
 }
 
 static int smc_cmd(smc_dev_t *smc, u64 message)
